@@ -23,7 +23,7 @@ import os
 import sys
 import json
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import List, Optional
 
 import datasets
 import nltk  # Here to have a nice missing dependency error message early on
@@ -53,6 +53,8 @@ from ni_collator import DataCollatorForNI
 from ni_trainer import NITrainer, DenserEvalCallback
 from compute_metrics import compute_metrics, compute_grouped_metrics
 
+from util import merge_models
+
 set_progress_bar_enabled(False)
 logger = logging.getLogger(__name__)
 
@@ -78,6 +80,9 @@ class ModelArguments:
 
     model_name_or_path: str = field(
         metadata={"help": "Path to pretrained model or model identifier from huggingface.co/models"}
+    )
+    models_to_merge: Optional[List[str]] = field(
+        default=None, metadata={"help": "List of paths to models for uniform merging."},
     )
     config_name: Optional[str] = field(
         default=None, metadata={"help": "Pretrained config name or path if not the same as model_name"}
@@ -345,6 +350,14 @@ def main():
     )
 
     model.resize_token_embeddings(len(tokenizer))
+
+    # merge specified models and load them into the current model
+    if model_args.models_to_merge is not None:
+        if len(model_args.models_to_merge) == 1:
+            models_to_merge = model_args.models_to_merge[0].split(',')
+        else:
+            models_to_merge = model_args.models_to_merge
+        merge_models(model, models_to_merge)
 
     if model.config.decoder_start_token_id is None and isinstance(tokenizer, (MBartTokenizer, MBartTokenizerFast)):
         if isinstance(tokenizer, MBartTokenizer):
