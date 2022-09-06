@@ -1,0 +1,21 @@
+{
+    "exp_name": "large-category-987-steps",
+    "categories": ["question_answering", "program_execution",
+                   "question_generation", "sentiment_analysis", "misc.",
+                   "toxic_language_detection", "text_categorization",
+                   "textual_entailment", "commonsense_classification",
+                   "title_generation", "information_extraction",
+                   "named_entity_recognition", "text_matching",
+                   "wrong_candidate_generation", "text_completion",
+                   "coreference_resolution", "question_understanding",
+                   "answerability_classification", "text_to_code",
+                   "summarization", "dialogue_generation",
+                   "question_rewriting", "word_semantics"],
+    "max_steps": 987,
+    "logging_steps": 25,
+    "save_steps": 395,
+    "run_name_fmt": "experts/large-category/{category}",
+    "eval_type": "evaluate-on-train",
+    "data_dir": "data/splits/train_as_eval"
+}
+

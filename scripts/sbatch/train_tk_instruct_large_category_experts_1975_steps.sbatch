@@ -18,4 +18,4 @@
 
 export WANDB_MODE=online
 export WANDB_PROJECT=tk-instruct-experts
-python scripts/train_tk_instruct_experts.py scripts/config/large_category_experts.json $SLURM_ARRAY_TASK_ID
+python scripts/train_tk_instruct_experts.py scripts/config/large_category_experts_1975_steps.json $SLURM_ARRAY_TASK_ID
