@@ -13,16 +13,16 @@ with open(sys.argv[-2], 'r') as f:
     cfg = json.load(f)
 category = cfg['categories'][int(sys.argv[-1])]
 data_dir = cfg.get('data_dir', 'data/splits/default')
+dataset = cfg.get('dataset', 'natural-instructions-v2')
 
 # specify model path
-model_name_or_path = os.path.join('results', 'natural-instructions-v2',
+model_name_or_path = os.path.join('results', dataset,
                                   'tk-instruct-base-experts', 'train',
                                   cfg['exp_name'], category)
 
 # create output directory
-output_dir = os.path.join('results', 'natural-instructions-v2',
-                          'tk-instruct-base-experts', cfg['eval_type'],
-                          cfg['exp_name'], category)
+output_dir = os.path.join('results', dataset, 'tk-instruct-base-experts',
+                          cfg['eval_type'], cfg['exp_name'], category)
 os.makedirs(output_dir, exist_ok=True)
 
 # check for existing results

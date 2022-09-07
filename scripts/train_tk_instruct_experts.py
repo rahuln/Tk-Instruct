@@ -13,11 +13,11 @@ import sys
 with open(sys.argv[-2], 'r') as f:
     cfg = json.load(f)
 category = cfg['categories'][int(sys.argv[-1])]
+dataset = cfg.get('dataset', 'natural-instructions-v2')
 
 # create output directory
-output_dir = os.path.join('results', 'natural-instructions-v2',
-                          'tk-instruct-base-experts', cfg['exp_name'],
-                          category)
+output_dir = os.path.join('results', dataset, 'tk-instruct-base-experts',
+                          cfg['exp_name'], category)
 os.makedirs(output_dir, exist_ok=True)
 
 # get run name and number of training epochs/steps
