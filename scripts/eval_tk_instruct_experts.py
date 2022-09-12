@@ -12,8 +12,9 @@ import subprocess
 with open(sys.argv[-2], 'r') as f:
     cfg = json.load(f)
 category = cfg['categories'][int(sys.argv[-1])]
-data_dir = cfg.get('data_dir', 'data/splits/default')
+data_dir = cfg.get('eval_data_dir', 'data/splits/default')
 dataset = cfg.get('dataset', 'natural-instructions-v2')
+use_dev = cfg.get('use_dev', False)
 
 # specify model path
 model_name_or_path = os.path.join('results', dataset,
@@ -54,6 +55,10 @@ cmd = ['python', 'src/run_s2s.py',
        '--cache_dir=/gscratch/ark/rahuln/.cache',
        '--overwrite_cache',
        '--per_device_eval_batch_size=4']
+
+# use dev/test split of test set if specified
+if use_dev:
+    cmd.extend(['--do_eval', '--use_dev'])
 
 # print command to log file
 print(' '.join(cmd))

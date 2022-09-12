@@ -14,6 +14,8 @@ with open(sys.argv[-2], 'r') as f:
     cfg = json.load(f)
 category = cfg['categories'][int(sys.argv[-1])]
 dataset = cfg.get('dataset', 'natural-instructions-v2')
+data_dir = cfg.get('data_dir', 'data/splits/category')
+use_dev = cfg.get('use_dev', False)
 
 # create output directory
 output_dir = os.path.join('results', dataset, 'tk-instruct-base-experts',
@@ -49,7 +51,7 @@ cmd = ['python', 'src/run_s2s.py',
        '--num_neg_examples=0',
        '--add_explanation=False',
        '--tk_instruct=False',
-       f'--data_dir=data/splits/category/{category}',
+       f'--data_dir={data_dir}/{category}',
        '--task_dir=data/tasks',
        f'--output_dir={output_dir}',
        '--overwrite_output_dir',
@@ -74,6 +76,10 @@ if num_train_epochs is not None:
     cmd.append(f'--num_train_epochs={num_train_epochs}')
 elif max_steps is not None:
     cmd.append(f'--max_steps={max_steps}')
+
+# use dev/test split of test set if specified
+if use_dev:
+    cmd.extend(['--do_eval', '--use_dev'])
 
 # print command to log file
 print(' '.join(cmd))
