@@ -34,6 +34,7 @@
     "save_steps": 2500,
     "run_name_fmt": "experts/category/{category}",
     "eval_type": "evaluate-on-train",
-    "data_dir": "data/splits/train_as_eval"
+    "data_dir": "data/splits/category",
+    "eval_data_dir": "data/splits/train_as_eval"
 }
 
