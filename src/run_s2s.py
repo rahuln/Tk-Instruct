@@ -235,6 +235,10 @@ class DataTrainingArguments:
         default=False,
         metadata={"help": "tk_instruct will train a model combining all valid instruction encodings. This will overwrite the other settings about instruction encoding."} 
     )
+    use_dev: Optional[bool] = field(
+        default=False,
+        metadata={"help": "split test instances into dev and test sets, ensure that they are left out of training set"}
+    )
     
     def __post_init__(self):
         pass
@@ -319,7 +323,8 @@ def main():
         task_dir=data_args.task_dir, 
         cache_dir=model_args.cache_dir,
         max_num_instances_per_task=data_args.max_num_instances_per_task,
-        max_num_instances_per_eval_task=data_args.max_num_instances_per_eval_task
+        max_num_instances_per_eval_task=data_args.max_num_instances_per_eval_task,
+        use_dev=data_args.use_dev
     )
 
     # Load pretrained model and tokenizer

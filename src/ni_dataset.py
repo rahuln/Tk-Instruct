@@ -43,11 +43,12 @@ through an iterative peer review process to ensure their quality.
 _URL = "https://instructions.apps.allenai.org/"
 
 class NIConfig(datasets.BuilderConfig):
-    def __init__(self, *args, task_dir=None, max_num_instances_per_task=None, max_num_instances_per_eval_task=None, **kwargs):
+    def __init__(self, *args, task_dir=None, max_num_instances_per_task=None, max_num_instances_per_eval_task=None, use_dev=False, **kwargs):
         super().__init__(*args, **kwargs)
         self.task_dir: str = task_dir
         self.max_num_instances_per_task: int = max_num_instances_per_task
         self.max_num_instances_per_eval_task: int = max_num_instances_per_eval_task
+        self.use_dev: bool = use_dev
 
 
 class NaturalInstructions(datasets.GeneratorBasedBuilder):
@@ -154,13 +155,27 @@ class NaturalInstructions(datasets.GeneratorBasedBuilder):
                     if "Instruction Source" in task_data:
                         task_data.pop("Instruction Source")
                     all_instances = task_data.pop("Instances")
-                    if subset == "test":
-                        # for testing tasks, 100 instances are selected for efficient evaluation and they are label-balanced.
-                        # we put them in the first for reproducibility.
-                        # so, we use them here
-                        instances = all_instances[:100]
+                    if self.config.use_dev:
+                        if subset == "test":
+                            # for testing tasks, 100 instances are selected for efficient evaluation and they are label-balanced.
+                            # we put them in the first for reproducibility.
+                            # so, we use the first 50 instances here
+                            instances = all_instances[:50]
+                        elif subset == "dev":
+                            # use the remaining 50 instances as the dev set
+                            instances = all_instances[50:100]
+                        else:
+                            # use all instances other than the first 100 as the
+                            # training set
+                            instances = all_instances[100:]
                     else:
-                        instances = all_instances
+                        if subset == "test":
+                            # for testing tasks, 100 instances are selected for efficient evaluation and they are label-balanced.
+                            # we put them in the first for reproducibility.
+                            # so, we use them here
+                            instances = all_instances[:100]
+                        else:
+                            instances = all_instances
                     if max_num_instances_per_task is not None and max_num_instances_per_task >= 0:
                         random.shuffle(instances)
                         instances = instances[:max_num_instances_per_task]
