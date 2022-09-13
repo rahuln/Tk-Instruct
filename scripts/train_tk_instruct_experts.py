@@ -19,7 +19,7 @@ use_dev = cfg.get('use_dev', False)
 
 # create output directory
 output_dir = os.path.join('results', dataset, 'tk-instruct-base-experts',
-                          cfg['exp_name'], category)
+                          'train', cfg['exp_name'], category)
 os.makedirs(output_dir, exist_ok=True)
 
 # get run name and number of training epochs/steps
