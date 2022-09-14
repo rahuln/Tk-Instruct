@@ -4,6 +4,13 @@ import os
 import torch
 
 
+def send_to_device(state_dict, device):
+    """ send all parameters in state_dict to a given device """
+    for name, param in state_dict.items():
+        state_dict[name] = param.to(device)
+    return state_dict
+
+
 def merge_models(model, models_to_merge):
     """ load a set of T5 models with paths given in models_to_merge, perform a
         uniform weighted average of their parameters, and then load the
@@ -27,4 +34,22 @@ def merge_models(model, models_to_merge):
 
     # load merged parameters into model
     model.load_state_dict(merged_state_dict)
+
+
+def merge_state_dicts(state_dict1, state_dict2, num_averaged=1):
+    """ merge parameters for the given state_dicts by averaging, where the
+        first state_dict is already an average over num_averaged models """
+
+    # ensure that all parameters are on the CPU
+    state_dict1 = send_to_device(state_dict1, 'cpu')
+    state_dict2 = send_to_device(state_dict2, 'cpu')
+
+    # iterate through state_dicts, merging parameters
+    denom = num_averaged + 1
+    merged_state_dict = dict()
+    for name, param1 in state_dict1.items():
+        param2 = state_dict2[name]
+        merged_state_dict[name] = (num_averaged * param1 + param2) / denom
+
+    return merged_state_dict
 
