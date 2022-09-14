@@ -99,9 +99,19 @@ if __name__ == '__main__':
             with open(os.path.join(savedir, f'{subset}_tasks.txt'), 'w') as f:
                 f.write('\n'.join(all_train_tasks) + '\n')
 
+    # construct test sub-directory, where each training, dev, and test set
+    # contains the tasks in that category
+    for category, tasks in test_categories.items():
+        category_dir = category.lower().replace(' ', '_')
+        savedir = os.path.join(args.outdir, 'test', category_dir)
+        os.makedirs(savedir, exist_ok=True)
+        for subset in ('train', 'dev', 'test'):
+            with open(os.path.join(savedir, f'{subset}_tasks.txt'), 'w') as f:
+                f.write('\n'.join(tasks) + '\n')
+
     # construct test sub-directory, where training, dev, and test sets
     # contain tasks across all test categories
-    savedir = os.path.join(args.outdir, 'test')
+    savedir = os.path.join(args.outdir, 'test', 'all')
     os.makedirs(savedir, exist_ok=True)
     for subset in ('train', 'dev', 'test'):
         with open(os.path.join(savedir, f'{subset}_tasks.txt'), 'w') as f:
@@ -112,7 +122,7 @@ if __name__ == '__main__':
     print('largest training category (num tasks):',
           max(list(map(len, train_categories.values()))))
     print('num training tasks:', len(all_train_tasks))
-    print('num test categories:', len(train_categories))
+    print('num test categories:', len(test_categories))
     print('largest test category (num tasks):',
           max(list(map(len, test_categories.values()))))
     print('num test tasks:', len(all_test_tasks))
