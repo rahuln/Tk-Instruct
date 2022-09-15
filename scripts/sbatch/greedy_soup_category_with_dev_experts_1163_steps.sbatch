@@ -9,7 +9,7 @@
 #SBATCH --cpus-per-task=4
 #SBATCH --mem-per-cpu=8G
 #SBATCH --time=12:00:00
-#SBATCH --array=0-6
+#SBATCH --array=0-11
 #SBATCH --output=slurm/gscatdev-%A-%a.log
 #SBATCH --error=slurm/gscatdev-%A-%a.log
 #SBATCH --export=all
