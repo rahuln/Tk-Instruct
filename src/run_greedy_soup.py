@@ -25,6 +25,7 @@ import json
 from dataclasses import dataclass, field
 from copy import deepcopy
 from glob import glob
+from time import time
 
 import datasets
 import nltk  # Here to have a nice missing dependency error message early on
@@ -98,6 +99,8 @@ def main():
     # See all possible arguments in src/transformers/training_args.py
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
+
+    start = time()
 
     parser = HfArgumentParser((SoupModelArguments, DataTrainingArguments, NITrainingArguments))
     if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
@@ -193,6 +196,7 @@ def main():
     if model_args.include_base_model or model_args.start_with_base_model:
         logger.info("Including base model as potential soup component")
         state_dicts.insert(0, send_to_device(model.state_dict(), 'cpu'))
+        files.insert(0, model_args.model_name_or_path)
 
     if (
         hasattr(model.config, "max_position_embeddings")
@@ -301,19 +305,22 @@ def main():
     num_beams = data_args.num_beams if data_args.num_beams is not None else training_args.generation_num_beams
 
     # find single best model to start soup with
+    soup_info = {"models" : list(), "eval_rougeL" : list()}
     best_metric, best_idx = -np.inf, 0
     if model_args.start_with_base_model:
         logger.info("Using base model as initial soup component")
         metrics = trainer.evaluate(max_length=max_length, num_beams=num_beams, metric_key_prefix="eval")
-        best_metric, best_idx = metrics['eval_rougeL'], best_idx
+        best_metric, best_idx = metrics["eval_rougeL"], 0
     else:
         logger.info("Finding best initial model")
         for idx, state_dict in enumerate(state_dicts):
             model.load_state_dict(state_dict)
             metrics = trainer.evaluate(max_length=max_length, num_beams=num_beams, metric_key_prefix="eval")
-            if metrics['eval_rougeL'] > best_metric:
-                best_metric, best_idx = metrics['eval_rougeL'], idx
+            if metrics["eval_rougeL"] > best_metric:
+                best_metric, best_idx = metrics["eval_rougeL"], idx
     logger.info(f"best eval_rougeL: {best_metric:.2f}, index: {best_idx}")
+    soup_info["models"].append(files[best_idx])
+    soup_info["eval_rougeL"].append(best_metric)
     model.load_state_dict(state_dicts[best_idx])
 
     # for maximum number of iterations, add a model to the soup based on performance
@@ -325,13 +332,15 @@ def main():
             new_state_dict = merge_state_dicts(curr_state_dict, state_dict, num_averaged=it+1)
             model.load_state_dict(new_state_dict)
             metrics = trainer.evaluate(max_length=max_length, num_beams=num_beams, metric_key_prefix="eval")
-            if metrics['eval_rougeL'] > best_metric:
-                best_metric, best_idx = metrics['eval_rougeL'], idx
+            if metrics["eval_rougeL"] > best_metric:
+                best_metric, best_idx = metrics["eval_rougeL"], idx
         logger.info(f"best eval_rougeL: {best_metric:.2f}, index: {best_idx}")
         if prev_best_metric == best_metric:
             logger.info("metric did not improve, exiting loop")
             break
         curr_state_dict = merge_state_dicts(curr_state_dict, state_dicts[best_idx])
+        soup_info["models"].append(files[best_idx])
+        soup_info["eval_rougeL"].append(best_metric)
 
     # load state_dict for best soup into model
     model.load_state_dict(curr_state_dict)
@@ -363,6 +372,12 @@ def main():
     # write all metrics to file
     with open(os.path.join(training_args.output_dir, "metrics.json"), "w") as fout:
         json.dump(all_metrics, fout, indent=4)
+
+    # write soup info to file
+    elapsed = time() - start
+    soup_info['soup_runtime'] = elapsed
+    with open(os.path.join(training_args.output_dir, "soup_info.json"), "w") as fout:
+        json.dump(soup_info, fout, indent=4)
 
     return results
 
