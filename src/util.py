@@ -11,18 +11,23 @@ def send_to_device(state_dict, device):
     return state_dict
 
 
-def merge_models(model, models_to_merge):
+def merge_models(model, models_to_merge, weights=None):
     """ load a set of T5 models with paths given in models_to_merge, perform a
         uniform weighted average of their parameters, and then load the
         parameters into the specified model object """
 
+    # set weights, check that number of weights and models is the same
+    if weights is None:
+        weights = [1. / len(models_to_merge)] * len(models_to_merge)
+    if len(weights) != len(models_to_merge):
+        raise ValueError('number of models and weights must match')
+
     # loop through models, averaging their parameters
-    weight = 1. / len(models_to_merge)
     merged_state_dict = {name : 0. for name, param in model.named_parameters()}
     merged_state_dict.update({'encoder.embed_tokens.weight' : 0.,
                               'decoder.embed_tokens.weight' : 0.,
                               'lm_head.weight' : 0.})
-    for path in models_to_merge:
+    for path, weight in zip(models_to_merge, weights):
         if path.endswith('pytorch_model.bin'):
             path = os.path.dirname(path)
         if not os.path.exists(os.path.join(path, 'pytorch_model.bin')):
