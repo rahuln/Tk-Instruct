@@ -1,0 +1,15 @@
+{
+    "exp_name": "category-with-dev-1163-steps",
+    "categories": ["commonsense_classification", "information_extraction",
+                   "misc.", "program_execution", "question_answering",
+                   "question_generation", "question_understanding",
+                   "sentiment_analysis", "summarization",
+                   "text_categorization", "text_completion", "text_matching",
+                   "text_to_code", "toxic_language_detection",
+                   "wrong_candidate_generation"],
+    "run_name_fmt": "interp-expert/category-with-dev/{category}",
+    "eval_type": "evaluate-interp",
+    "data_dir": "data/splits/category-with-dev/train",
+    "eval_data_dir": "data/splits/category-with-dev/test/all"
+}
+
