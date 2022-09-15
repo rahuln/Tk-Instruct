@@ -84,6 +84,9 @@ class ModelArguments:
     models_to_merge: Optional[List[str]] = field(
         default=None, metadata={"help": "List of paths to models for uniform merging."},
     )
+    merging_weights: Optional[List[str]] = field(
+        default=None, metadata={"help": "List of weights for merging models."}
+    )
     config_name: Optional[str] = field(
         default=None, metadata={"help": "Pretrained config name or path if not the same as model_name"}
     )
@@ -358,11 +361,21 @@ def main():
 
     # merge specified models and load them into the current model
     if model_args.models_to_merge is not None:
+
         if len(model_args.models_to_merge) == 1:
             models_to_merge = model_args.models_to_merge[0].split(',')
         else:
             models_to_merge = model_args.models_to_merge
-        merge_models(model, models_to_merge)
+
+        merging_weights = None
+        if model_args.merging_weights is not None:
+            if len(model_args.merging_weights) == 1:
+                merging_weights = model_args.merging_weights[0].split(',')
+            else:
+                merging_weights = model_args.merging_weights
+            merging_weights = list(map(float, merging_weights))
+
+        merge_models(model, models_to_merge, weights=merging_weights)
 
     if model.config.decoder_start_token_id is None and isinstance(tokenizer, (MBartTokenizer, MBartTokenizerFast)):
         if isinstance(tokenizer, MBartTokenizer):
