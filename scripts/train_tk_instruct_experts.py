@@ -16,6 +16,7 @@ category = cfg['categories'][int(sys.argv[-1])]
 dataset = cfg.get('dataset', 'natural-instructions-v2')
 data_dir = cfg.get('data_dir', 'data/splits/category')
 use_dev = cfg.get('use_dev', False)
+train_on_dev = cfg.get('train_on_dev', False)
 
 # create output directory
 output_dir = os.path.join('results', dataset, 'tk-instruct-base-experts',
@@ -69,7 +70,8 @@ cmd = ['python', 'src/run_s2s.py',
        '--save_strategy=steps',
        f'--save_steps={cfg["save_steps"]}',
        '--save_total_limit=2',
-       f'--run_name={run_name}']
+       f'--run_name={run_name}',
+       f'--train_on_dev={train_on_dev}']
 
 # set number of training epochs or steps
 if num_train_epochs is not None:
