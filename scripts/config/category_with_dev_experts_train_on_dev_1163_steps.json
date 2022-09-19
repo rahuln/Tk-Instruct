@@ -24,6 +24,7 @@
     "max_soup_size": 10,
     "include_base_model": true,
     "start_with_base_model": true,
-    "train_on_dev": true
+    "train_on_dev": true,
+    "eval_steps": 129
 }
 
