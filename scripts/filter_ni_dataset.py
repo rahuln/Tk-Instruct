@@ -72,8 +72,9 @@ if __name__ == '__main__':
     # split into train/test sets based on number of datasets per category
     train_categories = {key : value for key, value in category_to_tasks.items()
                         if len(value) >= args.min_num_tasks}
-    test_categories = {key : value for key, value in category_to_tasks.items()
-                       if len(value) < args.min_num_tasks}
+
+    # do this for now, will filter for test task categories below
+    test_categories = category_to_tasks
 
     # filter train/test categories to those in original train/test splits
     if args.use_default_split:
