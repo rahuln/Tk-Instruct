@@ -1,6 +1,7 @@
 """ script to construct and evaluate greedy soup (with replacement) on a
     specific test task category """
 
+from argparse import ArgumentParser
 from glob import glob
 import json
 import os
@@ -8,25 +9,38 @@ import subprocess
 import sys
 
 
+# command-line arguments
+parser = ArgumentParser()
+parser.add_argument('cfg_file', type=str, help='path to config file')
+parser.add_argument('--exp_name', type=str, default='exp',
+                    help='name of experiment (e.g., number of training steps)')
+parser.add_argument('--data_dir', type=str, default='data/splits/default',
+                    help='data directory for evaluation tasks')
+parser.add_argument('--max_soup_size', type=int, default=10,
+                    help='maximum number of allowed soup components')
+parser.add_argument('--include_base_model', action='store_true',
+                    help='include base model as possible soup component')
+parser.add_argument('--start_with_base_model', action='store_true',
+                    help='use base model as initial soup component')
+parser.add_argument('--index', type=int, default=None,
+                    help='index of Slurm array job')
+args = parser.parse_args()
+
 # load config file, select task category using index from command line
-with open(sys.argv[-2], 'r') as f:
+with open(args.cfg_file, 'r') as f:
     cfg = json.load(f)
-category = cfg['test_categories'][int(sys.argv[-1])]
-data_dir = cfg.get('eval_data_dir', 'data/splits/default')
-dataset = cfg.get('dataset', 'natural-instructions-v2')
-max_soup_size = cfg.get('max_soup_size', 10)
-include_base_model = cfg.get('include_base_model', False)
-start_with_base_model = cfg.get('start_with_base_model', False)
+category = cfg['test_categories'][args.index]
+dataset = cfg.get('dataset', 'niv2')
 use_dev = cfg.get('use_dev', False)
 
 # specify path to models to use as soup components
 path_to_soup_components = os.path.join('results', dataset,
                                        'tk-instruct-base-experts', 'train',
-                                       cfg['exp_name'])
+                                       args.exp_name)
 
 # create output directory
 output_dir = os.path.join('results', dataset, 'tk-instruct-base-experts',
-                          'evaluate-greedy-soup', cfg['exp_name'], category)
+                          'evaluate', args.exp_name, category)
 os.makedirs(output_dir, exist_ok=True)
 
 # check for existing results
@@ -52,7 +66,7 @@ cmd = ['python', 'src/run_greedy_soup.py',
        '--num_neg_examples=0',
        '--add_explanation=False',
        '--tk_instruct=False',
-       f'--data_dir={data_dir}/{category}',
+       f'--data_dir={args.data_dir}/{category}',
        '--task_dir=data/tasks',
        f'--output_dir={output_dir}',
        '--overwrite_output_dir',
@@ -60,9 +74,9 @@ cmd = ['python', 'src/run_greedy_soup.py',
        '--overwrite_cache',
        '--per_device_eval_batch_size=4',
        f'--path_to_soup_components={path_to_soup_components}',
-       f'--max_soup_size={max_soup_size}',
-       f'--include_base_model={include_base_model}',
-       f'--start_with_base_model={start_with_base_model}']
+       f'--max_soup_size={args.max_soup_size}',
+       f'--include_base_model={args.include_base_model}',
+       f'--start_with_base_model={args.start_with_base_model}']
 
 # use dev/test split of test set if specified
 if use_dev:

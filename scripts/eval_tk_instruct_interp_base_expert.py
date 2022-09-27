@@ -1,6 +1,7 @@
 """ script to evaluate interpolation between tk-instruct-base and specialized
     expert on a given dataset """
 
+from argparse import ArgumentParser
 from glob import glob
 from itertools import product
 import json
@@ -11,22 +12,36 @@ import sys
 import numpy as np
 
 
+# command-line arguments
+parser = ArgumentParser()
+parser.add_argument('cfg_file', type=str, help='path to config file')
+parser.add_argument('--exp_name', type=str, default='exp',
+                    help='name of experiment (e.g., number of training steps)')
+parser.add_argument('--data_dir', type=str, default='data/splits/default',
+                    help='data directory for evaluation tasks')
+parser.add_argument('--eval_dirname', type=str, default='test',
+                    help='name for evaluation results directory')
+parser.add_argument('--num_weights', type=int, default=11,
+                    help='number of interpolation weights in grid')
+parser.add_argument('--index', type=int, default=None,
+                    help='index of Slurm array job')
+args = parser.parse_args()
+
 # load config file, select task category using index from command line
-with open(sys.argv[-2], 'r') as f:
+with open(args.cfg_file, 'r') as f:
     cfg = json.load(f)
-weights = np.linspace(0, 1, cfg.get('num_weights', 11))
+weights = np.linspace(0, 1, args.num_weights)
 grid = list(product(cfg['categories'], weights))
-category, weight = grid[int(sys.argv[-1])]
-data_dir = cfg.get('eval_data_dir', 'data/splits/default')
-dataset = cfg.get('dataset', 'natural-instructions-v2')
+category, weight = grid[args.index]
+dataset = cfg.get('dataset', 'niv2')
 
 # specify model path
 model_name_or_path = os.path.join('results', dataset,
                                   'tk-instruct-base-experts', 'train',
-                                  cfg['exp_name'], category)
+                                  args.exp_name, category)
 
 # specify path to base model
-base_model_path = os.path.join('results', dataset, 'tk-instruct-base',
+base_model_path = os.path.join('results', 'niv2', 'tk-instruct-base',
                                'saved_model')
 
 # construct strings for paths to models to merge and merging weights
@@ -35,8 +50,8 @@ merging_weights = str(weight) + ',' + str(1 - weight)
 
 # create output directory
 output_dir = os.path.join('results', dataset, 'tk-instruct-base-experts',
-                          cfg['eval_type'], cfg['exp_name'], category,
-                          f'weight-{weight:.1f}')
+                          'evaluate', args.eval_dirname, args.exp_name,
+                          category, f'weight-{weight:.1f}')
 os.makedirs(output_dir, exist_ok=True)
 
 # check for existing results
@@ -63,7 +78,7 @@ cmd = ['python', 'src/run_s2s.py',
        '--num_neg_examples=0',
        '--add_explanation=False',
        '--tk_instruct=False',
-       f'--data_dir={data_dir}',
+       f'--data_dir={args.data_dir}',
        '--task_dir=data/tasks',
        f'--output_dir={output_dir}',
        '--overwrite_output_dir',

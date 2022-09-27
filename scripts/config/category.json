@@ -1,5 +1,5 @@
 {
-    "exp_name": "category",
+    "dataset": "niv2-category",
     "categories": ["answer_verification", "code_to_text",
                    "coherence_classification", "commonsense_classification",
                    "dialogue_generation", "dialogue_state_tracking",
@@ -29,12 +29,7 @@
                    "text_to_code", "toxic_language_detection", "translation",
                    "word_relation_classification", "word_semantics",
                    "wrong_candidate_generation"],
-    "num_train_epochs": 2,
-    "logging_steps": 500,
-    "save_steps": 2500,
     "run_name_fmt": "experts/category/{category}",
-    "eval_type": "evaluate-on-train",
-    "data_dir": "data/splits/category",
-    "eval_data_dir": "data/splits/train_as_eval"
+    "data_dir": "data/splits/category"
 }
 

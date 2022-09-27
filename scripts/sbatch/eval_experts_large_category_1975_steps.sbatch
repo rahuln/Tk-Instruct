@@ -18,4 +18,9 @@
 
 export WANDB_DISABLED=true
 export WANDB_MODE=offline
-python scripts/eval_tk_instruct_experts.py scripts/config/large_category_experts_987_steps.json $SLURM_ARRAY_TASK_ID
+python scripts/eval_tk_instruct_experts.py \
+    scripts/config/large_category_experts_1975_steps.json \
+    --exp_name 1975-steps \
+    --data_dir data/splits/large_category \
+    --eval_dirname test \
+    --index $SLURM_ARRAY_TASK_ID

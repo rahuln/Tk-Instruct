@@ -1,6 +1,7 @@
 """ script to train specialized experts initialized from tk-instruct-base
     on different task categories """
 
+from argparse import ArgumentParser
 from glob import glob
 import json
 import os
@@ -9,26 +10,47 @@ import subprocess
 import sys
 
 
+# command-line arguments
+parser = ArgumentParser()
+parser.add_argument('cfg_file', type=str, help='path to config file')
+parser.add_argument('--exp_name', type=str, default='exp',
+                    help='name of experiment (e.g., number of training steps)')
+parser.add_argument('--train_on_dev', action='store_true',
+                    help='train on dev set instead of test set')
+parser.add_argument('--num_train_epochs', type=int, default=None,
+                    help='number of epochs of training')
+parser.add_argument('--max_steps', type=int, default=None,
+                    help='maximum number of steps of training')
+parser.add_argument('--logging_steps', type=int, default=10,
+                    help='number of steps between logging outputs')
+parser.add_argument('--eval_steps', type=int, default=0,
+                    help='number of steps before each evaluation')
+parser.add_argument('--save_steps', type=int, default=500,
+                    help='number of steps between saves')
+parser.add_argument('--index', type=int, default=None,
+                    help='index of Slurm array job')
+args = parser.parse_args()
+
 # load config file, select task category using index from command line
-with open(sys.argv[-2], 'r') as f:
+with open(args.cfg_file, 'r') as f:
     cfg = json.load(f)
-category = cfg['categories'][int(sys.argv[-1])]
-dataset = cfg.get('dataset', 'natural-instructions-v2')
+
+if args.train_on_dev:
+    category = cfg['test_categories'][args.index]
+else:
+    category = cfg['categories'][args.index]
+dataset = cfg.get('dataset', 'niv2')
 data_dir = cfg.get('data_dir', 'data/splits/category')
 use_dev = cfg.get('use_dev', False)
-train_on_dev = cfg.get('train_on_dev', False)
-eval_steps = cfg.get('eval_steps', 0)
 
 # create output directory
 output_dir = os.path.join('results', dataset, 'tk-instruct-base-experts',
-                          'train', cfg['exp_name'], category)
+                          'train', args.exp_name, category)
 os.makedirs(output_dir, exist_ok=True)
 
 # get run name and number of training epochs/steps
 run_name = cfg['run_name_fmt'].format(category=category)
-num_train_epochs = cfg.get('num_train_epochs', None)
-max_steps = cfg.get('max_steps', None)
-if num_train_epochs is None and max_steps is None:
+if args.num_train_epochs is None and args.max_steps is None:
     raise RuntimeError('must specify either num_train_epochs or max_steps')
 
 # check for existing results
@@ -66,20 +88,20 @@ cmd = ['python', 'src/run_s2s.py',
        '--lr_scheduler_type=constant',
        '--warmup_steps=0',
        '--logging_strategy=steps',
-       f'--logging_steps={cfg["logging_steps"]}',
-       f'--evaluation_strategy={"steps" if eval_steps > 0 else "no"}',
-       f'--eval_steps={eval_steps}',
+       f'--logging_steps={args.logging_steps}',
+       f'--evaluation_strategy={"steps" if args.eval_steps > 0 else "no"}',
+       f'--eval_steps={args.eval_steps}',
        '--save_strategy=steps',
-       f'--save_steps={cfg["save_steps"]}',
+       f'--save_steps={args.save_steps}',
        '--save_total_limit=2',
        f'--run_name={run_name}',
-       f'--train_on_dev={train_on_dev}']
+       f'--train_on_dev={args.train_on_dev}']
 
 # set number of training epochs or steps
-if num_train_epochs is not None:
-    cmd.append(f'--num_train_epochs={num_train_epochs}')
-elif max_steps is not None:
-    cmd.append(f'--max_steps={max_steps}')
+if args.num_train_epochs is not None:
+    cmd.append(f'--num_train_epochs={args.num_train_epochs}')
+elif args.max_steps is not None:
+    cmd.append(f'--max_steps={args.max_steps}')
 
 # use dev/test split of test set if specified
 if use_dev:

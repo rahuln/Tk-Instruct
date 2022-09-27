@@ -17,4 +17,12 @@
 #SBATCH --mail-user=rahuln@cs.washington.edu
 
 export WANDB_DISABLED=true
-python scripts/greedy_soup_tk_instruct_experts.py scripts/config/category_with_dev_experts_2326_steps.json $SLURM_ARRAY_TASK_ID
+python scripts/greedy_soup_tk_instruct_experts.py \
+    scripts/config/category_with_dev.json \
+    --exp_name 1163-steps \
+    --data_dir data/splits/category-with-dev/test \
+    --eval_dirname test \
+    --max_soup_size 10 \
+    --include_base_model True \
+    --start_with_base_model True \
+    --index $SLURM_ARRAY_TASK_ID

@@ -1,5 +1,5 @@
 {
-    "exp_name": "category-with-dev-2326-steps",
+    "dataset": "niv2-ts10-tr200-ev100-dev50",
     "categories": ["commonsense_classification", "information_extraction",
                    "misc.", "program_execution", "question_answering",
                    "question_generation", "question_understanding",
@@ -14,16 +14,8 @@
                         "keyword_tagging", "overlap_extraction",
                         "question_rewriting", "textual_entailment",
                         "title_generation", "word_analogy"],
-    "max_steps": 2326,
-    "logging_steps": 25,
-    "save_steps": 387,
     "run_name_fmt": "experts/category-with-dev/{category}",
-    "eval_type": "evaluate",
     "data_dir": "data/splits/category-with-dev/train",
-    "eval_data_dir": "data/splits/category-with-dev/test",
-    "use_dev": true,
-    "max_soup_size": 10,
-    "include_base_model": true,
-    "start_with_base_model": true
+    "use_dev": true
 }
 

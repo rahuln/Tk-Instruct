@@ -19,4 +19,11 @@
 export WANDB_MODE=online
 export WANDB_PROJECT=tk-instruct-experts
 export WANDB_RUN_GROUP=test-categories-train-on-dev
-python scripts/train_tk_instruct_experts.py scripts/config/category_with_dev_experts_train_on_dev_1163_steps.json $SLURM_ARRAY_TASK_ID
+python scripts/train_tk_instruct_experts.py \
+    scripts/config/category_with_dev.json \
+    --exp_name 1163-steps \
+    --train_on_dev \
+    --max_steps 1163 \
+    --logging_steps 25 \
+    --save_steps 387 \
+    --index $SLURM_ARRAY_TASK_ID

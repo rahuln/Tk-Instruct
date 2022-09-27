@@ -1,6 +1,7 @@
 """ script to evaluate specialized experts initialized from tk-instruct-base
     on specified task categories """
 
+from argparse import ArgumentParser
 from glob import glob
 import json
 import os
@@ -8,22 +9,35 @@ import sys
 import subprocess
 
 
+# command-line arguments
+parser = ArgumentParser()
+parser.add_argument('cfg_file', type=str, help='path to config file')
+parser.add_argument('--exp_name', type=str, default='exp',
+                    help='name of experiment (e.g., number of training steps)')
+parser.add_argument('--data_dir', type=str, default='data/splits/default',
+                    help='data directory for evaluation tasks')
+parser.add_argument('--eval_dirname', type=str, default='test',
+                    help='name for evaluation results directory')
+parser.add_argument('--index', type=int, default=None,
+                    help='index of Slurm array job')
+args = parser.parse_args()
+
 # load config file, select task category using index from command line
-with open(sys.argv[-2], 'r') as f:
+with open(args.cfg_file, 'r') as f:
     cfg = json.load(f)
-category = cfg['categories'][int(sys.argv[-1])]
-data_dir = cfg.get('eval_data_dir', 'data/splits/default')
-dataset = cfg.get('dataset', 'natural-instructions-v2')
+category = cfg['categories'][args.index]
+dataset = cfg.get('dataset', 'niv2')
 use_dev = cfg.get('use_dev', False)
 
 # specify model path
 model_name_or_path = os.path.join('results', dataset,
                                   'tk-instruct-base-experts', 'train',
-                                  cfg['exp_name'], category)
+                                  args.exp_name, category)
 
 # create output directory
 output_dir = os.path.join('results', dataset, 'tk-instruct-base-experts',
-                          cfg['eval_type'], cfg['exp_name'], category)
+                          'evaluate', args.eval_dirname, args.exp_name,
+                          category)
 os.makedirs(output_dir, exist_ok=True)
 
 # check for existing results
@@ -48,7 +62,7 @@ cmd = ['python', 'src/run_s2s.py',
        '--num_neg_examples=0',
        '--add_explanation=False',
        '--tk_instruct=False',
-       f'--data_dir={data_dir}',
+       f'--data_dir={args.data_dir}',
        '--task_dir=data/tasks',
        f'--output_dir={output_dir}',
        '--overwrite_output_dir',

@@ -9,7 +9,7 @@
 #SBATCH --cpus-per-task=4
 #SBATCH --mem-per-cpu=8G
 #SBATCH --time=12:00:00
-#SBATCH --array=0-22
+#SBATCH --array=0-59
 #SBATCH --output=slurm/tkiexcat-%A-%a.log
 #SBATCH --error=slurm/tkiexcat-%A-%a.log
 #SBATCH --export=all
@@ -18,4 +18,9 @@
 
 export WANDB_DISABLED=true
 export WANDB_MODE=offline
-python scripts/eval_tk_instruct_experts.py scripts/config/large_category_experts_1975_steps.json $SLURM_ARRAY_TASK_ID
+python scripts/eval_tk_instruct_experts.py \
+    scripts/config/category_experts.json \
+    --exp_name 2-epochs \
+    --data_dir data/splits/train_as_eval \
+    --eval_dirname test \
+    --index $SLURM_ARRAY_TASK_ID
