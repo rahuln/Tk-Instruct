@@ -22,6 +22,8 @@ parser.add_argument('--include_base_model', action='store_true',
                     help='include base model as possible soup component')
 parser.add_argument('--start_with_base_model', action='store_true',
                     help='use base model as initial soup component')
+parser.add_argument('--max_num_instances_per_task', type=int, default=100,
+                    help='maximum number of training instances per task')
 parser.add_argument('--index', type=int, default=None,
                     help='index of Slurm array job')
 args = parser.parse_args()
@@ -58,7 +60,7 @@ cmd = ['python', 'src/run_greedy_soup.py',
        '--max_source_length=1024',
        '--max_target_length=128',
        '--generation_max_length=128',
-       '--max_num_instances_per_task=100',
+       f'--max_num_instances_per_task={args.max_num_instances_per_task}',
        '--max_num_instances_per_eval_task=100',
        '--add_task_name=False',
        '--add_task_definition=True',

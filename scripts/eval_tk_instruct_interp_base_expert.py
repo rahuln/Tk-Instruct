@@ -23,6 +23,8 @@ parser.add_argument('--eval_dirname', type=str, default='test',
                     help='name for evaluation results directory')
 parser.add_argument('--num_weights', type=int, default=11,
                     help='number of interpolation weights in grid')
+parser.add_argument('--max_num_instances_per_task', type=int, default=100,
+                    help='maximum number of training instances per task')
 parser.add_argument('--index', type=int, default=None,
                     help='index of Slurm array job')
 args = parser.parse_args()
@@ -70,7 +72,7 @@ cmd = ['python', 'src/run_s2s.py',
        '--max_source_length=1024',
        '--max_target_length=128',
        '--generation_max_length=128',
-       '--max_num_instances_per_task=100',
+       f'--max_num_instances_per_task={args.max_num_instances_per_task}',
        '--max_num_instances_per_eval_task=100',
        '--add_task_name=False',
        '--add_task_definition=True',

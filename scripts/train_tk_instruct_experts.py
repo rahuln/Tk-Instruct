@@ -21,6 +21,8 @@ parser.add_argument('--num_train_epochs', type=int, default=None,
                     help='number of epochs of training')
 parser.add_argument('--max_steps', type=int, default=None,
                     help='maximum number of steps of training')
+parser.add_argument('--max_num_instances_per_task', type=int, default=100,
+                    help='maximum number of training instances per task')
 parser.add_argument('--logging_steps', type=int, default=10,
                     help='number of steps between logging outputs')
 parser.add_argument('--eval_steps', type=int, default=0,
@@ -67,7 +69,7 @@ cmd = ['python', 'src/run_s2s.py',
        '--max_source_length=1024',
        '--max_target_length=128',
        '--generation_max_length=128',
-       '--max_num_instances_per_task=100',
+       f'--max_num_instances_per_task={args.max_num_instances_per_task}',
        '--max_num_instances_per_eval_task=100',
        '--add_task_name=False',
        '--add_task_definition=True',
