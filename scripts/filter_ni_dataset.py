@@ -26,6 +26,10 @@ parser.add_argument('--min-num-tasks', type=int, default=10,
 parser.add_argument('--use-default-split', action='store_true',
                     help='restrict train/test task categories to those used '
                          'in default NaturalInstructionsV2 split')
+parser.add_argument('--use-all-tasks-for-eval', action='store_true',
+                    help='use all training tasks for dev and test sets in '
+                         'training task directories, instead of just using '
+                         'the tasks for that task category')
 
 
 if __name__ == '__main__':
@@ -98,7 +102,10 @@ if __name__ == '__main__':
             f.write('\n'.join(tasks) + '\n')
         for subset in ('dev', 'test'):
             with open(os.path.join(savedir, f'{subset}_tasks.txt'), 'w') as f:
-                f.write('\n'.join(all_train_tasks) + '\n')
+                if args.use_all_tasks_for_eval:
+                    f.write('\n'.join(all_train_tasks) + '\n')
+                else:
+                    f.write('\n'.join(tasks) + '\n')
 
     # construct test sub-directory, where each training, dev, and test set
     # contains the tasks in that category
