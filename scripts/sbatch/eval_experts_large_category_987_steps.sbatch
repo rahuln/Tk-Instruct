@@ -23,4 +23,5 @@ python scripts/eval_tk_instruct_experts.py \
     --exp_name 987-steps \
     --data_dir data/splits/large_category \
     --eval_dirname test \
+    --max_num_instances_per_task 100 \
     --index $SLURM_ARRAY_TASK_ID

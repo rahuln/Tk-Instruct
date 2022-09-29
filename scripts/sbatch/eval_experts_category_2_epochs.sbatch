@@ -23,4 +23,5 @@ python scripts/eval_tk_instruct_experts.py \
     --exp_name 2-epochs \
     --data_dir data/splits/train_as_eval \
     --eval_dirname test \
+    --max_num_instances_per_task 100 \
     --index $SLURM_ARRAY_TASK_ID

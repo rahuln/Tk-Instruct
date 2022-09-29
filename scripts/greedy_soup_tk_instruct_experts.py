@@ -22,7 +22,7 @@ parser.add_argument('--include_base_model', action='store_true',
                     help='include base model as possible soup component')
 parser.add_argument('--start_with_base_model', action='store_true',
                     help='use base model as initial soup component')
-parser.add_argument('--max_num_instances_per_task', type=int, default=100,
+parser.add_argument('--max_num_instances_per_task', type=int, default=None,
                     help='maximum number of training instances per task')
 parser.add_argument('--index', type=int, default=None,
                     help='index of Slurm array job')
@@ -60,7 +60,6 @@ cmd = ['python', 'src/run_greedy_soup.py',
        '--max_source_length=1024',
        '--max_target_length=128',
        '--generation_max_length=128',
-       f'--max_num_instances_per_task={args.max_num_instances_per_task}',
        '--max_num_instances_per_eval_task=100',
        '--add_task_name=False',
        '--add_task_definition=True',
@@ -79,6 +78,11 @@ cmd = ['python', 'src/run_greedy_soup.py',
        f'--max_soup_size={args.max_soup_size}',
        f'--include_base_model={args.include_base_model}',
        f'--start_with_base_model={args.start_with_base_model}']
+
+# specify max_num_instances_per_task
+if args.max_num_instances_per_task is not None:
+    max_num_instances = args.max_num_instances_per_task
+    cmd.append(f'--max_num_instances_per_task={max_num_instances}')
 
 # use dev/test split of test set if specified
 if use_dev:

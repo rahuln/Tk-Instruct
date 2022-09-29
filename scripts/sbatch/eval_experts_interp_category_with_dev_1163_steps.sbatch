@@ -24,4 +24,5 @@ python scripts/eval_tk_instruct_interp_base_expert.py \
     --data_dir data/splits/category-with-dev/test/all \
     --eval_dirname interp-test \
     --num_weights 11 \
+    --max_num_instances_per_task 100 \
     --index $SLURM_ARRAY_TASK_ID

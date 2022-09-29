@@ -24,4 +24,5 @@ python scripts/train_tk_instruct_experts.py \
     --max_steps 987 \
     --logging_steps 25 \
     --save_steps 395 \
+    --max_num_instances_per_task 100 \
     --index $SLURM_ARRAY_TASK_ID

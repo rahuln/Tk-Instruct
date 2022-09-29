@@ -25,4 +25,5 @@ python scripts/greedy_soup_tk_instruct_experts.py \
     --max_soup_size 10 \
     --include_base_model True \
     --start_with_base_model True \
+    --max_num_instances_per_task 100 \
     --index $SLURM_ARRAY_TASK_ID

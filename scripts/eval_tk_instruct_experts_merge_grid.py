@@ -25,7 +25,7 @@ parser.add_argument('--data_dir', type=str, default='data/splits/default',
                     help='data directory for evaluation tasks')
 parser.add_argument('--eval_dirname', type=str, default='test',
                     help='name for evaluation results directory')
-parser.add_argument('--max_num_instances_per_task', type=int, default=100,
+parser.add_argument('--max_num_instances_per_task', type=int, default=None,
                     help='maximum number of training instances per task')
 parser.add_argument('--index', type=int, default=None,
                     help='index of Slurm array job')
@@ -68,7 +68,6 @@ cmd = ['python', 'src/run_s2s.py',
        '--max_source_length=1024',
        '--max_target_length=128',
        '--generation_max_length=128',
-       f'--max_num_instances_per_task={args.max_num_instances_per_task}',
        '--max_num_instances_per_eval_task=100',
        '--add_task_name=False',
        '--add_task_definition=True',
@@ -83,6 +82,11 @@ cmd = ['python', 'src/run_s2s.py',
        '--cache_dir=/gscratch/ark/rahuln/.cache',
        '--overwrite_cache',
        '--per_device_eval_batch_size=4']
+
+# specify max_num_instances_per_task
+if args.max_num_instances_per_task is not None:
+    max_num_instances = args.max_num_instances_per_task
+    cmd.append(f'--max_num_instances_per_task={max_num_instances}')
 
 # use dev/test split of test set if specified
 if use_dev:
