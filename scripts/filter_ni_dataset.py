@@ -23,6 +23,8 @@ parser.add_argument('--min-num-test-instances', type=int, default=100,
 parser.add_argument('--min-num-tasks', type=int, default=10,
                     help='minimum number of tasks per category to be included '
                          'in the training set')
+parser.add_argument('--num-eval-per-task', type=int, default=100,
+                    help='number of dev/test instances per task')
 parser.add_argument('--use-default-split', action='store_true',
                     help='restrict train/test task categories to those used '
                          'in default NaturalInstructionsV2 split')
@@ -48,6 +50,7 @@ if __name__ == '__main__':
 
     # construct map of task category to set of tasks
     category_to_tasks = defaultdict(lambda: list())
+    num_inst_per_task = dict()
     for fname in files:
         with open(fname, 'r') as f:
             task = json.load(f)
@@ -59,6 +62,7 @@ if __name__ == '__main__':
 
         # filter out tasks with too few instances
         num_inst = len(task['Instances'])
+        num_inst_per_task[task_name] = num_inst
         if args.use_default_split:
             if task_name in train_tasks and num_inst < args.min_num_instances:
                 continue
@@ -106,6 +110,26 @@ if __name__ == '__main__':
                     f.write('\n'.join(all_train_tasks) + '\n')
                 else:
                     f.write('\n'.join(tasks) + '\n')
+
+    # calculate relative scaling factors for training task categories based on
+    # number of tasks and number of instances, output to file
+    task_to_cat = {t : k for k, v in category_to_tasks.items() for t in v}
+    train_num_tasks = {k : len(v) for k, v in category_to_tasks.items()}
+    num_eval = args.num_eval_per_task
+    train_num_inst = {k : sum([num_inst_per_task[task_name] - num_eval
+                               for task_name in v])
+                      for k, v in category_to_tasks.items()}
+    max_tasks = max(list(train_num_tasks.values()))
+    max_inst = max(list(train_num_inst.values()))
+    num_tasks_scales = {name : train_num_tasks[task_to_cat[name]] / max_tasks
+                        for name in sorted(task_to_cat.keys())}
+    num_inst_scales = {name : train_num_inst[task_to_cat[name]] / max_inst
+                       for name in sorted(task_to_cat.keys())}
+    traindir = os.path.join(args.outdir, 'train')
+    with open(os.path.join(traindir, 'num_tasks_scales.json'), 'w') as f:
+        json.dump(num_tasks_scales, f, indent=4)
+    with open(os.path.join(traindir, 'num_inst_scales.json'), 'w') as f:
+        json.dump(num_inst_scales, f, indent=4)
 
     # construct test sub-directory, where each training, dev, and test set
     # contains the tasks in that category
