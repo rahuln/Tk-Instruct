@@ -1,0 +1,21 @@
+{
+    "dataset": "niv2-ts10-tr200-ev100-dev50",
+    "categories": ["commonsense_classification", "information_extraction",
+                   "misc.", "program_execution", "question_answering",
+                   "question_generation", "question_understanding",
+                   "sentiment_analysis", "summarization",
+                   "text_categorization", "text_completion", "text_matching",
+                   "text_to_code", "toxic_language_detection",
+                   "wrong_candidate_generation"],
+    "test_categories": ["answerability_classification",
+                        "cause_effect_classification",
+                        "coreference_resolution", "data_to_text",
+                        "dialogue_act_recognition", "grammar_error_correction",
+                        "keyword_tagging", "overlap_extraction",
+                        "question_rewriting", "textual_entailment",
+                        "title_generation", "word_analogy"],
+    "run_name_fmt": "experts/category-ts10-tr200-ev100/{category}",
+    "data_dir": "data/splits/category-ts10-tr200-ev100/train",
+    "use_dev": true
+}
+
