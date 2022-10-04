@@ -7,6 +7,7 @@ import json
 import os
 import string
 
+import numpy as np
 import torch
 from transformers import AutoModel, AutoTokenizer
 from tqdm import tqdm
@@ -19,8 +20,10 @@ parser.add_argument('--task_dir', type=str, default='data/tasks',
                     help='path to tasks directory')
 parser.add_argument('--model_name_or_path', type=str, default='roberta-base',
                     help='model to use for computing embeddings')
-parser.add_argument('--max_length', type=int, default=512,
+parser.add_argument('--desc_max_length', type=int, default=1024,
                     help='maximum number of input tokens per description')
+parser.add_argument('--tokenizer_max_length', type=int, default=512,
+                    help='maximum number of input tokens for tokenizer')
 parser.add_argument('--pooling', type=str, default='mean',
                     choices=['mean', 'cls'],
                     help='type of pooling to perform over output embeddings')
@@ -67,6 +70,7 @@ def main(args):
 
     # compute embedding for each task description
     embeddings = list()
+    lengths = list()
     for i, description in enumerate(tqdm(task_descriptions,
                                          desc='computing embeddings')):
         text = f'Definition: {description}\n\n'
@@ -85,13 +89,15 @@ def main(args):
                     pos_example_str += '.'
                 pos_example_str += '\n\n'
                 new_text = text + ' '.join(pos_str_list) + pos_example_str
-                if len(tokenizer(new_text)['input_ids']) <= args.max_length:
+                if len(tokenizer(new_text)['input_ids']) <= args.desc_max_length:
                     pos_str_list.append(pos_example_str)
                 else:
                     break
             text = text + ''.join(pos_str_list)
 
-        inputs = tokenizer(text, max_length=args.max_length,
+        lengths.append(len(tokenizer.tokenize(text)) + 2)
+        inputs = tokenizer(text, truncation=True,
+                           max_length=args.tokenizer_max_length,
                            return_tensors='pt').to('cuda')
         with torch.no_grad():
             outputs = model(**inputs, return_dict=True)
@@ -116,6 +122,11 @@ def main(args):
         savename = (f'{args.savename}-{model_name}-{args.pooling}-'
                     f'def{pos_str}.pt')
         torch.save(results, savename)
+
+    print(f'mean instruction length: {np.mean(lengths):.3f}')
+    print(f'maximum instruction length: {np.max(lengths):.3f}')
+    frac_longer = np.mean(np.array(lengths) > 512)
+    print(f'fraction longer than tokenizer limit: {frac_longer:.3f}')
 
 
 if __name__ == '__main__':
