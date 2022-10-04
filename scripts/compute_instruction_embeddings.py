@@ -99,7 +99,7 @@ def main(args):
             embedding = mean_pooling(outputs.last_hidden_state,
                                      inputs.attention_mask)
         elif args.pooling == 'cls':
-            embedding = output.last_hidden_state[:, 0, :]
+            embedding = outputs.last_hidden_state[:, 0, :]
         embeddings.append(embedding.detach().cpu())
     embeddings = torch.stack(embeddings).squeeze()
 
