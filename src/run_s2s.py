@@ -246,6 +246,10 @@ class DataTrainingArguments:
         default=False,
         metadata={"help": "train on dev set instead of training set"}
     )
+    relative_scales_file: str = field(
+        default=None,
+        metadata={"help": "path to file with relative scaling factors for tasks for upsampling tasks to be the same size."}
+    )
     
     def __post_init__(self):
         pass
@@ -331,7 +335,8 @@ def main():
         cache_dir=model_args.cache_dir,
         max_num_instances_per_task=data_args.max_num_instances_per_task,
         max_num_instances_per_eval_task=data_args.max_num_instances_per_eval_task,
-        use_dev=data_args.use_dev
+        use_dev=data_args.use_dev,
+        relative_scales_file=data_args.relative_scales_file
     )
 
     # Load pretrained model and tokenizer
