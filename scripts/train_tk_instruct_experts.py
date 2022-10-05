@@ -21,6 +21,10 @@ parser.add_argument('--num_train_epochs', type=int, default=None,
                     help='number of epochs of training')
 parser.add_argument('--max_steps', type=int, default=None,
                     help='maximum number of steps of training')
+parser.add_argument('--per_device_batch_size', type=int, default=2,
+                    help='per-GPU batch size for training')
+parser.add_argument('--gradient_accumulation_steps', type=int, default=8,
+                    help='number of gradient accumulation steps for training')
 parser.add_argument('--max_num_instances_per_task', type=int, default=None,
                     help='maximum number of training instances per task')
 parser.add_argument('--logging_steps', type=int, default=10,
@@ -79,12 +83,11 @@ cmd = ['python', 'src/run_s2s.py',
        f'--data_dir={data_dir}/{category}',
        '--task_dir=data/tasks',
        f'--output_dir={output_dir}',
-       '--overwrite_output_dir',
        '--cache_dir=/gscratch/ark/rahuln/.cache',
        '--overwrite_cache',
-       '--per_device_train_batch_size=2',
-       '--per_device_eval_batch_size=2',
-       '--gradient_accumulation_steps=8',
+       f'--per_device_train_batch_size={args.per_device_batch_size}',
+       f'--per_device_eval_batch_size={args.per_device_batch_size}',
+       f'--gradient_accumulation_steps={args.gradient_accumulation_steps}',
        '--learning_rate=5e-05',
        '--lr_scheduler_type=constant',
        '--warmup_steps=0',
