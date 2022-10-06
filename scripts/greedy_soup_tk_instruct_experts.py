@@ -40,9 +40,16 @@ path_to_soup_components = os.path.join('results', dataset,
                                        'tk-instruct-base-experts', 'train',
                                        args.exp_name)
 
+# construct directory for greedy soup results
+resdir = 'greedy-soup'
+if args.start_with_base_model:
+    resdir += '-init-base'
+elif args.include_base_model:
+    resdir += '-include-base'
+
 # create output directory
 output_dir = os.path.join('results', dataset, 'tk-instruct-base-experts',
-                          'evaluate', args.exp_name, category)
+                          'evaluate', resdir, args.exp_name, category)
 os.makedirs(output_dir, exist_ok=True)
 
 # check for existing results
