@@ -111,6 +111,14 @@ if __name__ == '__main__':
                 else:
                     f.write('\n'.join(tasks) + '\n')
 
+    # construct train sub-directory, where training, dev, and test sets
+    # contain tasks across all train categories
+    savedir = os.path.join(args.outdir, 'train', 'all')
+    os.makedirs(savedir, exist_ok=True)
+    for subset in ('train', 'dev', 'test'):
+        with open(os.path.join(savedir, f'{subset}_tasks.txt'), 'w') as f:
+            f.write('\n'.join(all_train_tasks) + '\n')
+
     # calculate relative scaling factors for training task categories based on
     # number of tasks and number of instances, output to file
     task_to_cat = {t : k for k, v in category_to_tasks.items() for t in v}
