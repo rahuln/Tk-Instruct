@@ -121,12 +121,12 @@ if __name__ == '__main__':
 
     # calculate relative scaling factors for training task categories based on
     # number of tasks and number of instances, output to file
-    task_to_cat = {t : k for k, v in category_to_tasks.items() for t in v}
-    train_num_tasks = {k : len(v) for k, v in category_to_tasks.items()}
+    task_to_cat = {t : k for k, v in train_categories.items() for t in v}
+    train_num_tasks = {k : len(v) for k, v in train_categories.items()}
     num_eval = args.num_eval_per_task
     train_num_inst = {k : sum([num_inst_per_task[task_name] - num_eval
                                for task_name in v])
-                      for k, v in category_to_tasks.items()}
+                      for k, v in train_categories.items()}
     max_tasks = max(list(train_num_tasks.values()))
     max_inst = max(list(train_num_inst.values()))
     num_tasks_scales = {name : train_num_tasks[task_to_cat[name]] / max_tasks
