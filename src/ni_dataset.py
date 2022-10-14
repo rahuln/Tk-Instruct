@@ -46,7 +46,7 @@ _URL = "https://instructions.apps.allenai.org/"
 class NIConfig(datasets.BuilderConfig):
     def __init__(self, *args, task_dir=None, max_num_instances_per_task=None,
                  max_num_instances_per_eval_task=None, use_dev=False,
-                 relative_scales_file=None, **kwargs):
+                 relative_scales_file=None, reduction_factor=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.task_dir: str = task_dir
         self.max_num_instances_per_task: int = max_num_instances_per_task
@@ -57,6 +57,7 @@ class NIConfig(datasets.BuilderConfig):
             with open(relative_scales_file, 'r') as f:
                 relative_scales = json.load(f)
             self.upsample_factors = {k : 1. / v for k, v in relative_scales.items()}
+        self.reduction_factor = reduction_factor
 
 
 class NaturalInstructions(datasets.GeneratorBasedBuilder):
@@ -188,12 +189,19 @@ class NaturalInstructions(datasets.GeneratorBasedBuilder):
                         random.shuffle(instances)
                         instances = instances[:max_num_instances_per_task]
 
-                    # repeat instances based on upsampling factor
-                    if self.config.upsample_factors is not None and subset == "train":
-                        factor = self.config.upsample_factors[task_name]
-                        total_len = math.ceil(factor * len(instances))
-                        if total_len > len(instances):
-                            instances = instances * math.ceil(factor)
+                    if subset == "train":
+
+                        # repeat instances based on upsampling factor
+                        if self.config.upsample_factors:
+                            factor = self.config.upsample_factors[task_name]
+                            total_len = math.ceil(factor * len(instances))
+                            if total_len > len(instances):
+                                instances = instances * math.ceil(factor)
+                                instances = instances[:total_len]
+
+                        # reduce instances by given reduction factor
+                        if self.config.reduction_factor:
+                            total_len = math.ceil(self.config.reduction_factor * len(instances))
                             instances = instances[:total_len]
 
                     for idx, instance in enumerate(instances):

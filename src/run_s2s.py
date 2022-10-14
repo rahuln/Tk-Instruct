@@ -250,7 +250,11 @@ class DataTrainingArguments:
         default=None,
         metadata={"help": "path to file with relative scaling factors for tasks for upsampling tasks to be the same size."}
     )
-    
+    reduction_factor: float = field(
+        default=None,
+        metadata={"help": "reduction factor for downsampling the number of instances per task"}
+    )
+
     def __post_init__(self):
         pass
 
@@ -336,7 +340,8 @@ def main():
         max_num_instances_per_task=data_args.max_num_instances_per_task,
         max_num_instances_per_eval_task=data_args.max_num_instances_per_eval_task,
         use_dev=data_args.use_dev,
-        relative_scales_file=data_args.relative_scales_file
+        relative_scales_file=data_args.relative_scales_file,
+        reduction_factor=data_args.reduction_factor
     )
 
     # Load pretrained model and tokenizer
