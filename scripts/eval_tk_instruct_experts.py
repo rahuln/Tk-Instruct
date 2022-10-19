@@ -8,6 +8,8 @@ import os
 import sys
 import subprocess
 
+import numpy as np
+
 
 # command-line arguments
 parser = ArgumentParser()
@@ -20,6 +22,11 @@ parser.add_argument('--eval_dirname', type=str, default='test',
                     help='name for evaluation results directory')
 parser.add_argument('--max_num_instances_per_task', type=int, default=None,
                     help='maximum number of training instances per task')
+parser.add_argument('--random_merge', type=int, default=0,
+                    help='evaluate by merging the specified number of '
+                         'experts, randomly selected from trained experts')
+parser.add_argument('--seed', type=int, default=42,
+                    help='seed for selecting random set of experts')
 parser.add_argument('--index', type=int, default=None,
                     help='index of Slurm array job')
 args = parser.parse_args()
@@ -27,14 +34,29 @@ args = parser.parse_args()
 # load config file, select task category using index from command line
 with open(args.cfg_file, 'r') as f:
     cfg = json.load(f)
-category = cfg['categories'][args.index]
+if args.random_merge > 0:
+    categories = cfg['test_categories']
+else:
+    categories = cfg['categories']
+category = categories[args.index]
 dataset = cfg.get('dataset', 'niv2')
 use_dev = cfg.get('use_dev', False)
 
 # specify model path
-model_name_or_path = os.path.join('results', dataset,
-                                  'tk-instruct-base-experts', 'train',
-                                  args.exp_name, category)
+if args.random_merge > 0:
+    np.random.seed(args.seed)
+    path_to_soup_components = os.path.join('results', dataset,
+                                           'tk-instruct-base-experts',
+                                           'train', args.exp_name)
+    experts = sorted(glob(os.path.join(path_to_soup_components, '*')))
+    idx = np.random.choice(len(experts), size=args.random_merge, replace=False)
+    models_to_merge = ','.join([experts[i] for i in idx])
+    data_dir = os.path.join(args.data_dir, category)
+else:
+    model_name_or_path = os.path.join('results', dataset,
+                                      'tk-instruct-base-experts', 'train',
+                                      args.exp_name, category)
+    data_dir = args.data_dir
 
 # create output directory
 output_dir = os.path.join('results', dataset, 'tk-instruct-base-experts',
@@ -52,7 +74,6 @@ cmd = ['python', 'src/run_s2s.py',
        '--do_predict',
        '--predict_with_generate',
        '--evaluation_strategy=no',
-       f'--model_name_or_path={model_name_or_path}',
        '--max_source_length=1024',
        '--max_target_length=128',
        '--generation_max_length=128',
@@ -63,13 +84,20 @@ cmd = ['python', 'src/run_s2s.py',
        '--num_neg_examples=0',
        '--add_explanation=False',
        '--tk_instruct=False',
-       f'--data_dir={args.data_dir}',
+       f'--data_dir={data_dir}',
        '--task_dir=data/tasks',
        f'--output_dir={output_dir}',
        '--overwrite_output_dir',
        '--cache_dir=/gscratch/ark/rahuln/.cache',
        '--overwrite_cache',
        '--per_device_eval_batch_size=4']
+
+# specify model(s) to use
+if args.random_merge > 0:
+    cmd.extend(['--model_name_or_path=allenai/tk-instruct-base-def-pos',
+                f'--models_to_merge={models_to_merge}'])
+else:
+    cmd.append(f'--model_name_or_path={model_name_or_path}')
 
 # specify max_num_instances_per_task
 if args.max_num_instances_per_task is not None:
