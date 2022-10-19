@@ -47,11 +47,14 @@ else:
     category = cfg['categories'][args.index]
 dataset = cfg.get('dataset', 'niv2')
 data_dir = cfg.get('data_dir', 'data/splits/category')
+if args.train_on_dev and data_dir.endswith('train'):
+    data_dir = data_dir.replace('train', 'test')
 use_dev = cfg.get('use_dev', False)
 
 # create output directory
+train_dir = 'train-dev' if args.train_on_dev else 'train'
 output_dir = os.path.join('results', dataset, 'tk-instruct-base-experts',
-                          'train', args.exp_name, category)
+                          train_dir, args.exp_name, category)
 os.makedirs(output_dir, exist_ok=True)
 
 # get run name and number of training epochs/steps
