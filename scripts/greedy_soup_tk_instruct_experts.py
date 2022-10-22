@@ -24,6 +24,8 @@ parser.add_argument('--start_with_base_model', action='store_true',
                     help='use base model as initial soup component')
 parser.add_argument('--max_num_instances_per_task', type=int, default=None,
                     help='maximum number of training instances per task')
+parser.add_argument('--output_ensemble', action='store_true',
+                    help='use output ensemble instead of parameter averaging')
 parser.add_argument('--index', type=int, default=None,
                     help='index of Slurm array job')
 args = parser.parse_args()
@@ -41,7 +43,7 @@ path_to_soup_components = os.path.join('results', dataset,
                                        args.exp_name)
 
 # construct directory for greedy soup results
-resdir = 'greedy-soup'
+resdir = 'output-ensemble' if args.output_ensemble else 'greedy-soup'
 if args.start_with_base_model:
     resdir += '-init-base'
 elif args.include_base_model:
@@ -94,6 +96,10 @@ if args.max_num_instances_per_task is not None:
 # use dev/test split of test set if specified
 if use_dev:
     cmd.extend(['--do_eval', '--use_dev'])
+
+# use output ensemble instead of parameter averaging
+if args.output_ensemble:
+    cmd.append('--output_ensemble')
 
 # print command to log file
 print(' '.join(cmd))

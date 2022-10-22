@@ -55,6 +55,7 @@ import torch
 from tqdm import tqdm
 
 from run_s2s import DataTrainingArguments, ModelArguments, NITrainingArguments
+from t5_output_ensemble import T5ForOutputEnsembling
 from util import merge_state_dicts, send_to_device
 
 set_progress_bar_enabled(False)
@@ -92,6 +93,10 @@ class SoupModelArguments(ModelArguments):
     start_with_base_model: bool = field(
         default=False,
         metadata={"help": "Use base model as initial soup component."}
+    )
+    output_ensemble: bool = field(
+        default=False,
+        metadata={"help": "Use output ensemble instead of parameter average."}
     )
 
 
@@ -185,17 +190,34 @@ def main():
 
     model.resize_token_embeddings(len(tokenizer))
 
+    if model_args.output_ensemble:
+        model = T5ForOutputEnsembling([model],
+                                      base_model=model_args.model_name_or_path,
+                                      cache_dir=model_args.cache_dir)
+        model.remove_model()
+
     # load state_dicts of all models that could be components in the soup
     files = sorted(glob(os.path.join(model_args.path_to_soup_components, '**',
                                      'pytorch_model.bin'), recursive=True))
     state_dicts = list()
     for fname in tqdm(files, desc='loading state_dicts'):
-        state_dicts.append(torch.load(fname, map_location='cpu'))
+        if model_args.output_ensemble:
+            component = AutoModelForSeq2SeqLM.from_pretrained(
+                fname, config=config, cache_dir=model_args.cache_dir)
+            state_dicts.append(component)
+        else:
+            state_dicts.append(torch.load(fname, map_location='cpu'))
 
     # include base model as potential soup component
     if model_args.include_base_model or model_args.start_with_base_model:
         logger.info("Including base model as potential soup component")
-        state_dicts.insert(0, send_to_device(model.state_dict(), 'cpu'))
+        if model_args.output_ensemble:
+            component = AutoModelForSeq2SeqLM.from_pretrained(
+                model_args.model_name_or_path, config=config,
+                cache_dir=model_args.cache_dir)
+            state_dicts.insert(0, component)
+        else:
+            state_dicts.insert(0, send_to_device(model.state_dict(), 'cpu'))
         files.insert(0, model_args.model_name_or_path)
 
     if (
@@ -308,42 +330,72 @@ def main():
     soup_info = {"models" : list(), "eval_rougeL" : list()}
     best_metric, best_idx = -np.inf, 0
     if model_args.start_with_base_model:
+        if model_args.output_ensemble:
+            state_dicts[0] = state_dicts[0].cuda()
+            model.add_model(state_dicts[0])
+            model.send_to_device('cuda:0')
         logger.info("Using base model as initial soup component")
         metrics = trainer.evaluate(max_length=max_length, num_beams=num_beams, metric_key_prefix="eval")
         best_metric, best_idx = metrics["eval_rougeL"], 0
     else:
         logger.info("Finding best initial model")
         for idx, state_dict in enumerate(state_dicts):
-            model.load_state_dict(state_dict)
+            if model_args.output_ensemble:
+                state_dict = state_dict.cuda()
+                model.add_model(state_dict)
+                model.send_to_device('cuda:0')
+            else:
+                model.load_state_dict(state_dict)
             metrics = trainer.evaluate(max_length=max_length, num_beams=num_beams, metric_key_prefix="eval")
             if metrics["eval_rougeL"] > best_metric:
                 best_metric, best_idx = metrics["eval_rougeL"], idx
+            if model_args.output_ensemble:
+                component = model.remove_model()
+                component = component.cpu()
     logger.info(f"best eval_rougeL: {best_metric:.2f}, index: {best_idx}")
     soup_info["models"].append(files[best_idx])
     soup_info["eval_rougeL"].append(best_metric)
-    model.load_state_dict(state_dicts[best_idx])
+    if model_args.output_ensemble:
+        state_dicts[best_idx] = state_dicts[best_idx].cuda()
+        model.add_model(state_dicts[best_idx])
+    else:
+        model.load_state_dict(state_dicts[best_idx])
 
     # for maximum number of iterations, add a model to the soup based on performance
-    curr_state_dict = deepcopy(model.state_dict())
+    if not model_args.output_ensemble:
+        curr_state_dict = deepcopy(model.state_dict())
     for it in range(model_args.max_soup_size - 1):
         logger.info(f"Running evaluation {it+2} / {model_args.max_soup_size}")
         prev_best_metric = best_metric
         for idx, state_dict in enumerate(state_dicts):
-            new_state_dict = merge_state_dicts(curr_state_dict, state_dict, num_averaged=it+1)
-            model.load_state_dict(new_state_dict)
+            if model_args.output_ensemble:
+                state_dict = state_dict.cuda()
+                model.add_model(state_dict)
+                model.send_to_device('cuda:0')
+            else:
+                new_state_dict = merge_state_dicts(curr_state_dict, state_dict, num_averaged=it+1)
+                model.load_state_dict(new_state_dict)
             metrics = trainer.evaluate(max_length=max_length, num_beams=num_beams, metric_key_prefix="eval")
             if metrics["eval_rougeL"] > best_metric:
                 best_metric, best_idx = metrics["eval_rougeL"], idx
+            if model_args.output_ensemble:
+                component = model.remove_model()
+                component = component.cpu()
         logger.info(f"best eval_rougeL: {best_metric:.2f}, index: {best_idx}")
         if prev_best_metric == best_metric:
             logger.info("metric did not improve, exiting loop")
             break
-        curr_state_dict = merge_state_dicts(curr_state_dict, state_dicts[best_idx])
+        if model_args.output_ensemble:
+            state_dicts[best_idx] = state_dicts[best_idx].cuda()
+            model.add_model(state_dicts[best_idx])
+        else:
+            curr_state_dict = merge_state_dicts(curr_state_dict, state_dicts[best_idx])
         soup_info["models"].append(files[best_idx])
         soup_info["eval_rougeL"].append(best_metric)
 
     # load state_dict for best soup into model
-    model.load_state_dict(curr_state_dict)
+    if not model_args.output_ensemble:
+        model.load_state_dict(curr_state_dict)
 
     # run final evaluation on dev set
     logger.info("*** Evaluate ***")
