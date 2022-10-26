@@ -158,7 +158,10 @@ def main():
         cache_dir=model_args.cache_dir,
         max_num_instances_per_task=data_args.max_num_instances_per_task,
         max_num_instances_per_eval_task=data_args.max_num_instances_per_eval_task,
-        use_dev=data_args.use_dev
+        use_dev=data_args.use_dev,
+        relative_scales_file=data_args.relative_scales_file,
+        reduction_factor=data_args.reduction_factor,
+        num_dev=data_args.num_dev
     )
 
     # Load pretrained model and tokenizer

@@ -46,7 +46,8 @@ _URL = "https://instructions.apps.allenai.org/"
 class NIConfig(datasets.BuilderConfig):
     def __init__(self, *args, task_dir=None, max_num_instances_per_task=None,
                  max_num_instances_per_eval_task=None, use_dev=False,
-                 relative_scales_file=None, reduction_factor=None, **kwargs):
+                 relative_scales_file=None, reduction_factor=None,
+                 num_dev=50, **kwargs):
         super().__init__(*args, **kwargs)
         self.task_dir: str = task_dir
         self.max_num_instances_per_task: int = max_num_instances_per_task
@@ -58,6 +59,7 @@ class NIConfig(datasets.BuilderConfig):
                 relative_scales = json.load(f)
             self.upsample_factors = {k : 1. / v for k, v in relative_scales.items()}
         self.reduction_factor = reduction_factor
+        self.num_dev = num_dev
 
 
 class NaturalInstructions(datasets.GeneratorBasedBuilder):
@@ -172,7 +174,7 @@ class NaturalInstructions(datasets.GeneratorBasedBuilder):
                             instances = all_instances[:50]
                         elif subset == "dev":
                             # use the remaining 50 instances as the dev set
-                            instances = all_instances[50:100]
+                            instances = all_instances[50:50+self.config.num_dev]
                         else:
                             # use all instances other than the first 100 as the
                             # training set

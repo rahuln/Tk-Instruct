@@ -242,6 +242,10 @@ class DataTrainingArguments:
         default=False,
         metadata={"help": "split test instances into dev and test sets, ensure that they are left out of training set"}
     )
+    num_dev: Optional[int] = field(
+        default=50,
+        metadata={"help": "number of dev set examples to use per task"}
+    )
     train_on_dev: Optional[bool] = field(
         default=False,
         metadata={"help": "train on dev set instead of training set"}
@@ -341,7 +345,8 @@ def main():
         max_num_instances_per_eval_task=data_args.max_num_instances_per_eval_task,
         use_dev=data_args.use_dev,
         relative_scales_file=data_args.relative_scales_file,
-        reduction_factor=data_args.reduction_factor
+        reduction_factor=data_args.reduction_factor,
+        num_dev=data_args.num_dev
     )
 
     # Load pretrained model and tokenizer
