@@ -50,6 +50,7 @@ data_dir = cfg.get('data_dir', 'data/splits/category')
 if args.train_on_dev and data_dir.endswith('train'):
     data_dir = data_dir.replace('train', 'test')
 use_dev = cfg.get('use_dev', False)
+num_dev = cfg.get('num_dev', 50)
 
 # create output directory
 train_dir = 'train-dev' if args.train_on_dev else 'train'
@@ -117,7 +118,7 @@ elif args.max_steps is not None:
 
 # use dev/test split of test set if specified
 if use_dev:
-    cmd.extend(['--do_eval', '--use_dev'])
+    cmd.extend(['--do_eval', '--use_dev', f'--num_dev={num_dev}'])
 
 # print command to log file
 print(' '.join(cmd))

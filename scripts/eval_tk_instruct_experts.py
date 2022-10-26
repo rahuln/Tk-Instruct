@@ -41,6 +41,7 @@ else:
 category = categories[args.index]
 dataset = cfg.get('dataset', 'niv2')
 use_dev = cfg.get('use_dev', False)
+num_dev = cfg.get('num_dev', 50)
 
 # specify model path
 if args.random_merge > 0:
@@ -106,7 +107,7 @@ if args.max_num_instances_per_task is not None:
 
 # use dev/test split of test set if specified
 if use_dev:
-    cmd.extend(['--do_eval', '--use_dev'])
+    cmd.extend(['--do_eval', '--use_dev', f'--num_dev={num_dev}'])
 
 # print command to log file
 print(' '.join(cmd))

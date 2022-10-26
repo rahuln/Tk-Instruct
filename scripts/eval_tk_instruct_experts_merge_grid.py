@@ -40,6 +40,7 @@ weights_grid = [elem for elem in weights_grid if np.isclose(np.sum(elem), 1)]
 weights = weights_grid[args.index]
 dataset = cfg.get('dataset', 'niv2')
 use_dev = cfg.get('use_dev', False)
+num_dev = cfg.get('num_dev', 50)
 
 # construct strings for paths to models to merge and merging weights
 models_to_merge = ','.join(args.models)
@@ -90,7 +91,7 @@ if args.max_num_instances_per_task is not None:
 
 # use dev/test split of test set if specified
 if use_dev:
-    cmd.extend(['--do_eval', '--use_dev'])
+    cmd.extend(['--do_eval', '--use_dev', f'--num_dev={num_dev}'])
 
 # print command to log file
 print(' '.join(cmd))
