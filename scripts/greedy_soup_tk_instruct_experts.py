@@ -26,6 +26,8 @@ parser.add_argument('--max_num_instances_per_task', type=int, default=None,
                     help='maximum number of training instances per task')
 parser.add_argument('--output_ensemble', action='store_true',
                     help='use output ensemble instead of parameter averaging')
+parser.add_argument('--use_test_as_dev', action='store_true',
+                    help='use test set as validation set')
 parser.add_argument('--index', type=int, default=None,
                     help='index of Slurm array job')
 args = parser.parse_args()
@@ -49,6 +51,8 @@ if args.start_with_base_model:
     resdir += '-init-base'
 elif args.include_base_model:
     resdir += '-include-base'
+if args.use_test_as_dev:
+    resdir += '-test-as-dev'
 
 # create output directory
 output_dir = os.path.join('results', dataset, 'tk-instruct-base-experts',
@@ -96,7 +100,8 @@ if args.max_num_instances_per_task is not None:
 
 # use dev/test split of test set if specified
 if use_dev:
-    cmd.extend(['--do_eval', '--use_dev', f'--num_dev={num_dev}'])
+    cmd.extend(['--do_eval', '--use_dev', f'--num_dev={num_dev}',
+                f'--use_test_as_dev={args.use_test_as_dev}'])
 
 # use output ensemble instead of parameter averaging
 if args.output_ensemble:

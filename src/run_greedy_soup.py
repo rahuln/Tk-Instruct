@@ -260,6 +260,11 @@ def main():
     if data_args.max_predict_samples is not None:
         predict_dataset = predict_dataset.select(range(data_args.max_predict_samples))
 
+    # use test set as validation set
+    if data_args.use_test_as_dev:
+        logger.info("Using test set as validation set")
+        eval_dataset = predict_dataset
+
     # Data collator
     label_pad_token_id = -100 if data_args.ignore_pad_token_for_loss else tokenizer.pad_token_id
     data_collator = DataCollatorForNI(
