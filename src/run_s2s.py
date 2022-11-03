@@ -350,7 +350,8 @@ def main():
         use_dev=data_args.use_dev,
         relative_scales_file=data_args.relative_scales_file,
         reduction_factor=data_args.reduction_factor,
-        num_dev=data_args.num_dev
+        num_dev=data_args.num_dev,
+        train_on_dev=data_args.train_on_dev
     )
 
     # Load pretrained model and tokenizer
@@ -470,18 +471,6 @@ def main():
         predict_dataset = raw_datasets["test"]
         if data_args.max_predict_samples is not None:
             predict_dataset = predict_dataset.select(range(data_args.max_predict_samples))
-
-    # replace train_dataset with eval_dataset if specified
-    if data_args.train_on_dev:
-        logger.info("Training on dev set")
-        if training_args.do_eval:
-            train_dataset = eval_dataset
-        else:
-            if "validation" not in raw_datasets:
-                raise ValueError("--do_eval requires a validation dataset")
-            train_dataset = raw_datasets["validation"]
-            if data_args.max_eval_samples is not None:
-                train_dataset = train_dataset.select(range(data_args.max_eval_samples))
 
     # Data collator
     label_pad_token_id = -100 if data_args.ignore_pad_token_for_loss else tokenizer.pad_token_id

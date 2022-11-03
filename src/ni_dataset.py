@@ -47,7 +47,7 @@ class NIConfig(datasets.BuilderConfig):
     def __init__(self, *args, task_dir=None, max_num_instances_per_task=None,
                  max_num_instances_per_eval_task=None, use_dev=False,
                  relative_scales_file=None, reduction_factor=None,
-                 num_dev=50, **kwargs):
+                 num_dev=50, train_on_dev=False, **kwargs):
         super().__init__(*args, **kwargs)
         self.task_dir: str = task_dir
         self.max_num_instances_per_task: int = max_num_instances_per_task
@@ -60,6 +60,7 @@ class NIConfig(datasets.BuilderConfig):
             self.upsample_factors = {k : 1. / v for k, v in relative_scales.items()}
         self.reduction_factor = reduction_factor
         self.num_dev = num_dev
+        self.train_on_dev = train_on_dev
 
 
 class NaturalInstructions(datasets.GeneratorBasedBuilder):
@@ -174,11 +175,20 @@ class NaturalInstructions(datasets.GeneratorBasedBuilder):
                             instances = all_instances[:50]
                         elif subset == "dev":
                             # use the remaining 50 instances as the dev set
-                            instances = all_instances[50:50+self.config.num_dev]
+                            if self.config.train_on_dev:
+                                # use last 5 dev set examples as new dev set
+                                instances = all_instances[95:100]
+                            else:
+                                instances = all_instances[50:50+self.config.num_dev]
                         else:
                             # use all instances other than the first 100 as the
                             # training set
-                            instances = all_instances[100:]
+                            if self.config.train_on_dev:
+                                if self.config.num_dev > 45:
+                                    raise RuntimeError("training on too many dev set examples")
+                                instances = all_instances[50:50+self.config.num_dev]
+                            else:
+                                instances = all_instances[100:]
                     else:
                         if subset == "test":
                             # for testing tasks, 100 instances are selected for efficient evaluation and they are label-balanced.
