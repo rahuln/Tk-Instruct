@@ -28,6 +28,10 @@ parser.add_argument('--output_ensemble', action='store_true',
                     help='use output ensemble instead of parameter averaging')
 parser.add_argument('--use_test_as_dev', action='store_true',
                     help='use test set as validation set')
+parser.add_argument('--eval_on_task', action='store_true',
+                    help='indicates that data_dir contains set of tasks and '
+                         'evaluation run should evaluate on tasks rather than '
+                         'task categories')
 parser.add_argument('--index', type=int, default=None,
                     help='index of Slurm array job')
 args = parser.parse_args()
@@ -35,7 +39,12 @@ args = parser.parse_args()
 # load config file, select task category using index from command line
 with open(args.cfg_file, 'r') as f:
     cfg = json.load(f)
-category = cfg['test_categories'][args.index]
+
+if args.eval_on_task:
+    tasks = sorted(os.listdir(args.data_dir))
+    category = tasks[args.index]
+else:
+    category = cfg['test_categories'][args.index]
 dataset = cfg.get('dataset', 'niv2')
 use_dev = cfg.get('use_dev', False)
 num_dev = cfg.get('num_dev', 50)
@@ -53,6 +62,8 @@ elif args.include_base_model:
     resdir += '-include-base'
 if args.use_test_as_dev:
     resdir += '-test-as-dev'
+if args.eval_on_task:
+    resdir += '-eval-task'
 
 # create output directory
 output_dir = os.path.join('results', dataset, 'tk-instruct-base-experts',
