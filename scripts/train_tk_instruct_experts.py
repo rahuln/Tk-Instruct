@@ -50,6 +50,13 @@ parser.add_argument('--index', type=int, default=None,
                     help='index of Slurm array job')
 args = parser.parse_args()
 
+
+# mapping between Huggingface model names and output directory names
+model_to_dirname = {
+    'allenai/tk-instruct-base-def-pos' : 'tk-instruct-base',
+    'google/t5-base-lm-adapt' : 't5-base-lm-adapt',
+}
+
 # load config file, select task category using index from command line
 with open(args.cfg_file, 'r') as f:
     cfg = json.load(f)
@@ -94,10 +101,18 @@ else:
     model_name_or_path = args.model_name_or_path
 
 # create output directory
+if merging_models:
+    model_dirname = 'tk-instruct-base-experts'
+else:
+    if model_name_or_path in model_to_dirname:
+        model_dirname_prefix = model_to_dirname[model_name_or_path]
+    else:
+        model_dirname_prefix = model_name_or_path.split('/')[-1]
+    model_dirname = f'{model_dirname_prefix}-experts'
 train_dir = 'train-dev' if args.train_on_dev else 'train'
 train_dir += '-init-soup' if merging_models else ''
-output_dir = os.path.join('results', dataset, 'tk-instruct-base-experts',
-                          train_dir, args.exp_name, category)
+output_dir = os.path.join('results', dataset, model_dirname, train_dir,
+                          args.exp_name, category)
 os.makedirs(output_dir, exist_ok=True)
 
 # get run name and number of training epochs/steps
