@@ -38,6 +38,14 @@ parser.add_argument('--eval_steps', type=int, default=0,
                     help='number of steps before each evaluation')
 parser.add_argument('--save_steps', type=int, default=500,
                     help='number of steps between saves')
+parser.add_argument('--num_dev', type=int, default=None,
+                    help='number of dev set examples, overrides config')
+parser.add_argument('--load_best_model_at_end', action='store_true',
+                    help='load model with best dev set performance at end')
+parser.add_argument('--metric_for_best_model', type=str, default='eval_rougeL',
+                    help='metric for evaluating the best model')
+parser.add_argument('--greater_is_better', action='store_true',
+                    help='greater values of evaluation metric are better')
 parser.add_argument('--index', type=int, default=None,
                     help='index of Slurm array job')
 args = parser.parse_args()
@@ -55,7 +63,7 @@ data_dir = cfg.get('data_dir', 'data/splits/category')
 if args.train_on_dev and data_dir.endswith('train'):
     data_dir = data_dir.replace('train', 'test')
 use_dev = cfg.get('use_dev', False)
-num_dev = cfg.get('num_dev', 50)
+num_dev = args.num_dev if args.num_dev is not None else cfg.get('num_dev', 50)
 
 # get path to model or list of models to merge
 merging_models = False
@@ -159,6 +167,12 @@ elif args.max_steps is not None:
 # use dev/test split of test set if specified
 if use_dev:
     cmd.extend(['--do_eval', '--use_dev', f'--num_dev={num_dev}'])
+
+# specify if loading best model at end, and evaluation metric
+if args.load_best_model_at_end:
+    cmd.extend([f'--load_best_model_at_end={args.load_best_model_at_end}',
+                f'--metric_for_best_model={args.metric_for_best_model}',
+                f'--greater_is_better={args.greater_is_better}'])
 
 # print command to log file
 print(' '.join(cmd))
