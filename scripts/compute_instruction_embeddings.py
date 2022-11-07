@@ -23,6 +23,8 @@ parser.add_argument('--tasks_file', type=str, default=None,
                     help='list of tasks to include, excluding all others')
 parser.add_argument('--model_name_or_path', type=str, default='roberta-base',
                     help='model to use for computing embeddings')
+parser.add_argument('--use_encoder', action='store_true',
+                    help='use only the encoder of an encoder-decoder model')
 parser.add_argument('--desc_max_length', type=int, default=1024,
                     help='maximum number of input tokens per description')
 parser.add_argument('--tokenizer_max_length', type=int, default=512,
@@ -85,6 +87,8 @@ def main(args):
     model = AutoModel.from_pretrained(args.model_name_or_path,
                                       cache_dir=args.cache_dir)
     model = model.cuda()
+    if args.use_encoder and hasattr(model, 'encoder'):
+        model = model.encoder
 
     # compute embedding for each task description
     embeddings = list()
