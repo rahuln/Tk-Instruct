@@ -23,6 +23,8 @@ parser.add_argument('--data_dir', type=str, default='data/splits/default',
                     help='data directory for evaluation tasks')
 parser.add_argument('--max_num_instances_per_task', type=int, default=None,
                     help='maximum number of training instances per task')
+parser.add_argument('--task_embeddings', action='store_true',
+                    help='embeddings are for each task, not category')
 parser.add_argument('--num_experts_to_merge', type=int, default=3,
                     help='number of most-similar experts to merge')
 parser.add_argument('--suffix', type=str, default=None,
@@ -36,22 +38,40 @@ args = parser.parse_args()
 with open(args.cfg_file, 'r') as f:
     cfg = json.load(f)
 test_categories = cfg['test_categories']
-category = test_categories[args.index]
+if args.task_embeddings:
+    tasks = sorted(os.listdir(args.data_dir))
+    category = tasks[args.index]
+else:
+    category = test_categories[args.index]
 dataset = cfg.get('dataset', 'niv2')
 use_dev = cfg.get('use_dev', False)
 num_dev = cfg.get('num_dev', 50)
 
 # load embeddings file, find most similar experts based on embeddings
 emb = torch.load(args.emb_file)
-train_idx = [idx for idx, cat in enumerate(emb['categories'])
-             if cat not in test_categories]
-train_emb = emb['embeddings'][train_idx, :]
-train_categories = [emb['categories'][idx] for idx in train_idx]
-target_emb = emb['embeddings'][emb['categories'].index(category)]
-cosine_sim = torch.matmul(train_emb, target_emb)
-most_sim = torch.argsort(cosine_sim, descending=True)
-merge_categories = [train_categories[idx] for idx in
-                    most_sim[:args.num_experts_to_merge]]
+if args.task_embeddings:
+    # embeddings are specific to each task, not category
+    train_idx = [idx for idx, cat in enumerate(emb['task_categories'])
+                 if cat not in test_categories]
+    train_emb = emb['embeddings'][train_idx, :]
+    train_categories = [emb['task_categories'][idx] for idx in train_idx]
+    target_emb = emb['embeddings'][emb['task_names'].index(category)]
+    cosine_sim = torch.matmul(train_emb, target_emb)
+    most_sim = torch.argsort(cosine_sim, descending=True)
+    merge_categories = [train_categories[idx] for idx in
+                        most_sim[:args.num_experts_to_merge]]
+    merge_categories = sorted(set(merge_categories))
+else:
+    # embeddings are mean embeddings over task categories
+    train_idx = [idx for idx, cat in enumerate(emb['categories'])
+                 if cat not in test_categories]
+    train_emb = emb['embeddings'][train_idx, :]
+    train_categories = [emb['categories'][idx] for idx in train_idx]
+    target_emb = emb['embeddings'][emb['categories'].index(category)]
+    cosine_sim = torch.matmul(train_emb, target_emb)
+    most_sim = torch.argsort(cosine_sim, descending=True)
+    merge_categories = [train_categories[idx] for idx in
+                        most_sim[:args.num_experts_to_merge]]
 
 # specify paths to models to be merged
 models_to_merge = list()
@@ -65,6 +85,8 @@ models_to_merge = ','.join(models_to_merge)
 # create output directory
 suffix = f'-{args.suffix}' if args.suffix is not None else ''
 resdir = f'merge-top-{args.num_experts_to_merge}{suffix}'
+if args.task_embeddings:
+    resdir += '-eval-on-task'
 output_dir = os.path.join('results', dataset, 'tk-instruct-base-experts',
                           'evaluate', resdir, args.exp_name, category)
 os.makedirs(output_dir, exist_ok=True)
