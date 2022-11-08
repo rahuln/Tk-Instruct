@@ -18,6 +18,9 @@ parser.add_argument('--data_dir', type=str, default='data/splits/default',
                     help='data directory for evaluation tasks')
 parser.add_argument('--max_soup_size', type=int, default=10,
                     help='maximum number of allowed soup components')
+parser.add_argument('--base_model', type=str,
+                    default='allenai/tk-instruct-base-def-pos',
+                    help='name of or path to base model')
 parser.add_argument('--include_base_model', action='store_true',
                     help='include base model as possible soup component')
 parser.add_argument('--start_with_base_model', action='store_true',
@@ -36,6 +39,13 @@ parser.add_argument('--index', type=int, default=None,
                     help='index of Slurm array job')
 args = parser.parse_args()
 
+
+# mapping between Huggingface model names and output directory names
+model_to_dirname = {
+    'allenai/tk-instruct-base-def-pos' : 'tk-instruct-base',
+    'google/t5-base-lm-adapt' : 't5-base-lm-adapt',
+}
+
 # load config file, select task category using index from command line
 with open(args.cfg_file, 'r') as f:
     cfg = json.load(f)
@@ -49,10 +59,16 @@ dataset = cfg.get('dataset', 'niv2')
 use_dev = cfg.get('use_dev', False)
 num_dev = cfg.get('num_dev', 50)
 
+# get model directory name from base model
+if args.base_model in model_to_dirname:
+    model_dirname_prefix = model_to_dirname[args.base_model]
+else:
+    model_dirname_prefix = model_name_or_path.split('/')[-1]
+model_dirname = f'{model_dirname_prefix}-experts'
+
 # specify path to models to use as soup components
-path_to_soup_components = os.path.join('results', dataset,
-                                       'tk-instruct-base-experts', 'train',
-                                       args.exp_name)
+path_to_soup_components = os.path.join('results', dataset, model_dirname,
+                                       'train', args.exp_name)
 
 # construct directory for greedy soup results
 resdir = 'output-ensemble' if args.output_ensemble else 'greedy-soup'
@@ -66,8 +82,8 @@ if args.eval_on_task:
     resdir += '-eval-task'
 
 # create output directory
-output_dir = os.path.join('results', dataset, 'tk-instruct-base-experts',
-                          'evaluate', resdir, args.exp_name, category)
+output_dir = os.path.join('results', dataset, model_dirname, 'evaluate',
+                          resdir, args.exp_name, category)
 os.makedirs(output_dir, exist_ok=True)
 
 # check for existing results
