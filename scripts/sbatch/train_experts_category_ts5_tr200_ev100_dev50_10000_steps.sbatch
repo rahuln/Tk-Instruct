@@ -20,9 +20,12 @@ export WANDB_MODE=offline
 export WANDB_PROJECT=tk-instruct-experts
 python scripts/train_tk_instruct_experts.py \
     scripts/config/category_ts5_tr200_ev100_dev50.json \
-    --exp_name all-instances-10000-steps \
+    --exp_name all-instances-10000-steps-best-ckpt \
     --max_steps 10000 \
-    --eval_steps 1000 \
     --logging_steps 25 \
-    --save_steps 1000 \
+    --eval_steps 100 \
+    --save_steps 100 \
+    --load_best_model_at_end \
+    --metric_for_best_model eval_rougeL \
+    --greater_is_better \
     --index $SLURM_ARRAY_TASK_ID
