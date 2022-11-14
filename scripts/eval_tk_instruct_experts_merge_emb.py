@@ -19,6 +19,9 @@ parser.add_argument('emb_file', type=str,
                     help='path to file with task category embeddings')
 parser.add_argument('--exp_name', type=str, default='exp',
                     help='name of experiment (e.g., number of training steps)')
+parser.add_argument('--base_model', type=str,
+                    default='allenai/tk-instruct-base-def-pos',
+                    help='name of or path to base model')
 parser.add_argument('--data_dir', type=str, default='data/splits/default',
                     help='data directory for evaluation tasks')
 parser.add_argument('--max_num_instances_per_task', type=int, default=None,
@@ -33,6 +36,12 @@ parser.add_argument('--suffix', type=str, default=None,
 parser.add_argument('--index', type=int, default=None,
                     help='index of Slurm array job')
 args = parser.parse_args()
+
+# mapping between Huggingface model names and output directory names
+model_to_dirname = {
+    'allenai/tk-instruct-base-def-pos' : 'tk-instruct-base',
+    'google/t5-base-lm-adapt' : 't5-base-lm-adapt',
+}
 
 # load config file, select task category using index from command line
 with open(args.cfg_file, 'r') as f:
@@ -73,12 +82,18 @@ else:
     merge_categories = [train_categories[idx] for idx in
                         most_sim[:args.num_experts_to_merge]]
 
+# get model directory name from base model
+if args.base_model in model_to_dirname:
+    model_dirname_prefix = model_to_dirname[args.base_model]
+else:
+    model_dirname_prefix = model_name_or_path.split('/')[-1]
+model_dirname = f'{model_dirname_prefix}-experts'
+
 # specify paths to models to be merged
 models_to_merge = list()
 for cat in merge_categories:
-    model_name_or_path = os.path.join('results', dataset,
-                                      'tk-instruct-base-experts', 'train',
-                                      args.exp_name, cat)
+    model_name_or_path = os.path.join('results', dataset, model_dirname,
+                                      'train', args.exp_name, cat)
     models_to_merge.append(model_name_or_path)
 models_to_merge = ','.join(models_to_merge)
 
@@ -87,8 +102,8 @@ suffix = f'-{args.suffix}' if args.suffix is not None else ''
 resdir = f'merge-top-{args.num_experts_to_merge}{suffix}'
 if args.task_embeddings:
     resdir += '-eval-on-task'
-output_dir = os.path.join('results', dataset, 'tk-instruct-base-experts',
-                          'evaluate', resdir, args.exp_name, category)
+output_dir = os.path.join('results', dataset, model_dirname, 'evaluate',
+                          resdir, args.exp_name, category)
 os.makedirs(output_dir, exist_ok=True)
 
 # check for existing results
@@ -98,7 +113,7 @@ if os.path.exists(os.path.join(output_dir, 'metrics.json')):
 
 # set up command
 cmd = ['python', 'src/run_s2s.py',
-       '--model_name_or_path=allenai/tk-instruct-base-def-pos',
+       f'--model_name_or_path={args.base_model}',
        f'--models_to_merge={models_to_merge}',
        '--do_predict',
        '--predict_with_generate',
