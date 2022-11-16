@@ -28,12 +28,15 @@ def merge_models(model, models_to_merge, weights=None):
                               'decoder.embed_tokens.weight' : 0.,
                               'lm_head.weight' : 0.})
     for path, weight in zip(models_to_merge, weights):
-        if path.endswith('pytorch_model.bin'):
-            path = os.path.dirname(path)
-        if not os.path.exists(os.path.join(path, 'pytorch_model.bin')):
-            raise ValueError('paths to models must contain saved model')
-        state_dict = torch.load(os.path.join(path, 'pytorch_model.bin'),
-                                map_location='cpu')
+        if isinstance(path, str):
+            if path.endswith('pytorch_model.bin'):
+                path = os.path.dirname(path)
+            if not os.path.exists(os.path.join(path, 'pytorch_model.bin')):
+                raise ValueError('paths to models must contain saved model')
+            state_dict = torch.load(os.path.join(path, 'pytorch_model.bin'),
+                                    map_location='cpu')
+        else:
+            state_dict = path
         for name, param in state_dict.items():
             merged_state_dict[name] += weight * param
 
