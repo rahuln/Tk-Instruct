@@ -22,6 +22,8 @@ parser.add_argument('--exp_name', type=str, default='exp',
 parser.add_argument('--base_model', type=str,
                     default='allenai/tk-instruct-base-def-pos',
                     help='name of or path to base model')
+parser.add_argument('--include_base_model_in_merge', action='store_true',
+                    help='include base model when merging experts')
 parser.add_argument('--data_dir', type=str, default='data/splits/default',
                     help='data directory for evaluation tasks')
 parser.add_argument('--max_num_instances_per_task', type=int, default=None,
@@ -115,6 +117,7 @@ if os.path.exists(os.path.join(output_dir, 'metrics.json')):
 cmd = ['python', 'src/run_s2s.py',
        f'--model_name_or_path={args.base_model}',
        f'--models_to_merge={models_to_merge}',
+       f'--include_base_model_in_merge={args.include_base_model_in_merge}',
        '--do_predict',
        '--predict_with_generate',
        '--evaluation_strategy=no',
