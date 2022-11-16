@@ -84,6 +84,10 @@ class ModelArguments:
     models_to_merge: Optional[List[str]] = field(
         default=None, metadata={"help": "List of paths to models for uniform merging."},
     )
+    include_base_model_in_merge: Optional[bool] = field(
+        default=False,
+        metadata={"help": "Include base model when merging specified models."},
+    )
     merging_weights: Optional[List[str]] = field(
         default=None, metadata={"help": "List of weights for merging models."}
     )
@@ -390,6 +394,9 @@ def main():
             models_to_merge = model_args.models_to_merge[0].split(',')
         else:
             models_to_merge = model_args.models_to_merge
+
+        if model_args.include_base_model_in_merge:
+            models_to_merge.append(model.state_dict())
 
         merging_weights = None
         if model_args.merging_weights is not None:
