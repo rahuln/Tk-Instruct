@@ -2,6 +2,7 @@
     to a target task category and evaluate on that target category """
 
 from argparse import ArgumentParser
+from collections import Counter
 from glob import glob
 import json
 import os
@@ -32,6 +33,10 @@ parser.add_argument('--task_embeddings', action='store_true',
                     help='embeddings are for each task, not category')
 parser.add_argument('--num_experts_to_merge', type=int, default=3,
                     help='number of most-similar experts to merge')
+parser.add_argument('--use_merging_weights', action='store_true',
+                    help='when using task-level embeddings, use relative '
+                         'proportion of categories in most similar tasks '
+                         'as merging weights')
 parser.add_argument('--suffix', type=str, default=None,
                     help='suffix to add to results directory name '
                          '(e.g., what type of embeddings were used)')
@@ -69,9 +74,16 @@ if args.task_embeddings:
     target_emb = emb['embeddings'][emb['task_names'].index(category)]
     cosine_sim = torch.matmul(train_emb, target_emb)
     most_sim = torch.argsort(cosine_sim, descending=True)
-    merge_categories = [train_categories[idx] for idx in
-                        most_sim[:args.num_experts_to_merge]]
-    merge_categories = sorted(set(merge_categories))
+    merge_categories_list = [train_categories[idx] for idx in
+                             most_sim[:args.num_experts_to_merge]]
+    merge_categories = sorted(set(merge_categories_list))
+
+    # use relative occurrence of categories as merging weights
+    if args.use_merging_weights:
+        category_counts = Counter(merge_categories_list)
+        denom = len(merge_categories_list)
+        merging_weights = \
+            [category_counts[cat] / denom for cat in merge_categories]
 else:
     # embeddings are mean embeddings over task categories
     train_idx = [idx for idx, cat in enumerate(emb['categories'])
@@ -104,6 +116,8 @@ suffix = f'-{args.suffix}' if args.suffix is not None else ''
 resdir = f'merge-top-{args.num_experts_to_merge}{suffix}'
 if args.task_embeddings:
     resdir += '-eval-on-task'
+    if args.use_merging_weights:
+        resdir += '-weighted-merge'
 output_dir = os.path.join('results', dataset, model_dirname, 'evaluate',
                           resdir, args.exp_name, category)
 os.makedirs(output_dir, exist_ok=True)
@@ -147,6 +161,11 @@ if args.max_num_instances_per_task is not None:
 # use dev/test split of test set if specified
 if use_dev:
     cmd.extend(['--do_eval', '--use_dev', f'--num_dev={num_dev}'])
+
+# specify merging weights
+if args.task_embeddings and args.use_merging_weights:
+    merging_weights_str = ','.join(list(map(str, merging_weights)))
+    cmd.append(f'--merging_weights={merging_weights_str}')
 
 # print command to log file
 print(' '.join(cmd))
