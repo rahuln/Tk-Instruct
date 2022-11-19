@@ -31,6 +31,8 @@ parser.add_argument('--output_ensemble', action='store_true',
                     help='use output ensemble instead of parameter averaging')
 parser.add_argument('--use_test_as_dev', action='store_true',
                     help='use test set as validation set')
+parser.add_argument('--num_dev', type=int, default=None,
+                    help='number of dev set examples, overrides config')
 parser.add_argument('--eval_on_task', action='store_true',
                     help='indicates that data_dir contains set of tasks and '
                          'evaluation run should evaluate on tasks rather than '
@@ -57,7 +59,7 @@ else:
     category = cfg['test_categories'][args.index]
 dataset = cfg.get('dataset', 'niv2')
 use_dev = cfg.get('use_dev', False)
-num_dev = cfg.get('num_dev', 50)
+num_dev = args.num_dev if args.num_dev is not None else cfg.get('num_dev', 50)
 
 # get model directory name from base model
 if args.base_model in model_to_dirname:
