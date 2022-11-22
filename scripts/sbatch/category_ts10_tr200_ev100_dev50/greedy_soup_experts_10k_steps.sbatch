@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --partition=gpu-2080ti
+#SBATCH --partition=gpu-titan
 #SBATCH --account=ark
 #SBATCH --job-name=gscat10k
 #SBATCH --nodes=1
@@ -17,10 +17,20 @@
 #SBATCH --mail-user=rahuln@cs.washington.edu
 
 export WANDB_DISABLED=true
+
+if [ -z $1 ]
+then
+    echo "Error: must specify number of dev set examples"
+    exit
+fi
+
+echo "using $1 dev set examples"
+
 python scripts/greedy_soup_tk_instruct_experts.py \
     scripts/config/category_ts10_tr200_ev100_dev50.json \
     --exp_name all-instances-10000-steps \
     --data_dir data/splits/category-ts10-tr200-ev100/test \
     --max_soup_size 10 \
     --include_base_model \
+    --num_dev $1 \
     --index $SLURM_ARRAY_TASK_ID
