@@ -84,8 +84,9 @@ if args.eval_on_task:
     resdir += '-eval-task'
 
 # create output directory
+num_dev_suffix = f'-dev-{num_dev}' if args.num_dev is not None else ''
 output_dir = os.path.join('results', dataset, model_dirname, 'evaluate',
-                          resdir, args.exp_name, category)
+                          resdir, args.exp_name + num_dev_suffix, category)
 os.makedirs(output_dir, exist_ok=True)
 
 # check for existing results
