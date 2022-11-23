@@ -25,6 +25,9 @@ parser.add_argument('--include_base_model', action='store_true',
                     help='include base model as possible soup component')
 parser.add_argument('--start_with_base_model', action='store_true',
                     help='use base model as initial soup component')
+parser.add_argument('--finetuned_model_path', type=str, default=None,
+                    help='include model fine-tuned on target task as '
+                         'possible soup component')
 parser.add_argument('--max_num_instances_per_task', type=int, default=None,
                     help='maximum number of training instances per task')
 parser.add_argument('--output_ensemble', action='store_true',
@@ -82,6 +85,8 @@ if args.use_test_as_dev:
     resdir += '-test-as-dev'
 if args.eval_on_task:
     resdir += '-eval-task'
+if args.finetuned_model_path is not None:
+    resdir += '-incl-ft-model'
 
 # create output directory
 num_dev_suffix = f'-dev-{num_dev}' if args.num_dev is not None else ''
@@ -136,6 +141,12 @@ if use_dev:
 # use output ensemble instead of parameter averaging
 if args.output_ensemble:
     cmd.append('--output_ensemble')
+
+# include fine-tuned model as possible soup component
+if args.finetuned_model_path is not None:
+    finetuned_model = os.path.join(args.finetuned_model_path, category,
+                                   'pytorch_model.bin')
+    cmd.append(f'--include_models={finetuned_model}')
 
 # print command to log file
 print(' '.join(cmd))
