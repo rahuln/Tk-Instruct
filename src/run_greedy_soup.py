@@ -26,6 +26,7 @@ from dataclasses import dataclass, field
 from copy import deepcopy
 from glob import glob
 from time import time
+from typing import List, Optional
 
 import datasets
 import nltk  # Here to have a nice missing dependency error message early on
@@ -97,6 +98,10 @@ class SoupModelArguments(ModelArguments):
     output_ensemble: bool = field(
         default=False,
         metadata={"help": "Use output ensemble instead of parameter average."}
+    )
+    include_models: Optional[List[str]] = field(
+        default=None,
+        metadata={"help": "Specific paths to other models to include as soup components."}
     )
 
 
@@ -202,6 +207,13 @@ def main():
     # load state_dicts of all models that could be components in the soup
     files = sorted(glob(os.path.join(model_args.path_to_soup_components, '**',
                                      'pytorch_model.bin'), recursive=True))
+    if model_args.include_models is not None:
+        if len(model_args.include_models) == 1:
+            include_models = model_args.include_models[0].split(',')
+        else:
+            include_models = model_args.include_models
+        files.extend(include_models)
+
     state_dicts = list()
     for fname in tqdm(files, desc='loading state_dicts'):
         if model_args.output_ensemble:
