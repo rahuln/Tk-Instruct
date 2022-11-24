@@ -9,7 +9,7 @@
 #SBATCH --cpus-per-task=4
 #SBATCH --mem-per-cpu=8G
 #SBATCH --time=12:00:00
-#SBATCH --array=0-118
+#SBATCH --array=0-116
 #SBATCH --output=slurm/gs5ts10k-%A-%a.log
 #SBATCH --error=slurm/gs5ts10k-%A-%a.log
 #SBATCH --export=all
@@ -23,5 +23,5 @@ python scripts/greedy_soup_tk_instruct_experts.py \
     --data_dir data/splits/tasks/test \
     --max_soup_size 10 \
     --include_base_model \
-    --eval_on_task \
+    --eval_on_task data/splits/category-ts5-tr200-ev100/test/all/train_tasks.txt \
     --index $SLURM_ARRAY_TASK_ID

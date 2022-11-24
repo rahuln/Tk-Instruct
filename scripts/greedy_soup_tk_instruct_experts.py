@@ -36,7 +36,7 @@ parser.add_argument('--use_test_as_dev', action='store_true',
                     help='use test set as validation set')
 parser.add_argument('--num_dev', type=int, default=None,
                     help='number of dev set examples, overrides config')
-parser.add_argument('--eval_on_task', action='store_true',
+parser.add_argument('--eval_on_task', type=str, default=None,
                     help='indicates that data_dir contains set of tasks and '
                          'evaluation run should evaluate on tasks rather than '
                          'task categories')
@@ -55,8 +55,9 @@ model_to_dirname = {
 with open(args.cfg_file, 'r') as f:
     cfg = json.load(f)
 
-if args.eval_on_task:
-    tasks = sorted(os.listdir(args.data_dir))
+if args.eval_on_task is not None:
+    with open(args.eval_on_task, 'r') as f:
+        tasks = sorted([line.strip() for line in f.readlines()])
     category = tasks[args.index]
 else:
     category = cfg['test_categories'][args.index]
@@ -83,7 +84,7 @@ elif args.include_base_model:
     resdir += '-include-base'
 if args.use_test_as_dev:
     resdir += '-test-as-dev'
-if args.eval_on_task:
+if args.eval_on_task is not None:
     resdir += '-eval-task'
 if args.finetuned_model_path is not None:
     resdir += '-incl-ft-model'
