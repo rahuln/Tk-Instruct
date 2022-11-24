@@ -69,6 +69,7 @@ def main(args):
     task_names = list()
     task_categories = list()
     task_instances = dict()
+    task_instance_ids = dict()
     for fname in tqdm(task_files, desc='loading task info'):
         with open(fname, 'r') as f:
             task_info = json.load(f)
@@ -80,6 +81,8 @@ def main(args):
         task_categories.append(task_category)
         instances = [elem['input'] for elem in task_info['Instances']]
         task_instances[task_name] = instances[args.start_index:args.end_index]
+        instance_ids = [elem['id'] for elem in task_info['Instances']]
+        task_instance_ids[task_name] = instance_ids[args.start_index:args.end_index]
 
     # load model, tokenizer
     tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path,
@@ -144,12 +147,14 @@ def main(args):
             results = {
                 'task_names' : task_names,
                 'task_categories' : task_categories,
+                'task_instance_ids' : task_instance_ids,
                 'embeddings' : mean_emb
             }
         else:
             results = {
                 'task_names' : task_names,
                 'task_categories' : task_categories,
+                'task_instance_ids' : task_instance_ids,
                 'embeddings' : embeddings
             }
 
