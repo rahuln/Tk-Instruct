@@ -104,6 +104,21 @@ class SoupModelArguments(ModelArguments):
         metadata={"help": "Specific paths to other models to include as soup components."}
     )
 
+@dataclass
+class SoupDataArguments(DataTrainingArguments):
+    """
+    Extension of data arguments to handle construction of model soups
+    """
+
+    eval_instance_ids_file: Optional[str] = field(
+        default=None,
+        metadata={"help": "Filename with list of instance IDs to keep in dev set."}
+    )
+    test_task: Optional[str] = field(
+        default=None,
+        metadata={"help": "Name of task to use for filtering test set."}
+    )
+
 
 def main():
     # See all possible arguments in src/transformers/training_args.py
@@ -112,7 +127,7 @@ def main():
 
     start = time()
 
-    parser = HfArgumentParser((SoupModelArguments, DataTrainingArguments, NITrainingArguments))
+    parser = HfArgumentParser((SoupModelArguments, SoupDataArguments, NITrainingArguments))
     if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
         # If we pass only one argument to the script and it's the path to a json file,
         # let's parse it to get our arguments.
@@ -271,6 +286,26 @@ def main():
     predict_dataset = raw_datasets["test"]
     if data_args.max_predict_samples is not None:
         predict_dataset = predict_dataset.select(range(data_args.max_predict_samples))
+
+    # restrict instances in eval_dataset to those with IDs in specified file
+    if data_args.eval_instance_ids_file is not None:
+        logger.info(f'Restricting eval_dataset to instances with IDs in: {data_args.eval_instance_ids_file}')
+        with open(data_args.eval_instance_ids_file, 'r') as f:
+            keep_ids = set([line.strip() for line in f.readlines()])
+
+        def id_filter(example):
+            return example['id'] in keep_ids
+
+        eval_dataset = eval_dataset.filter(id_filter)
+
+    # restrict test set instances to those from specified task
+    if data_args.test_task is not None:
+        logger.info(f'Restricting predict_dataset to task: {data_args.test_task}')
+
+        def task_filter(example):
+            return example['Task'] == data_args.test_task
+
+        predict_dataset = predict_dataset.filter(task_filter)
 
     # use test set as validation set
     if data_args.use_test_as_dev:
