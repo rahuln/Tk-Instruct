@@ -287,6 +287,11 @@ def main():
     if data_args.max_predict_samples is not None:
         predict_dataset = predict_dataset.select(range(data_args.max_predict_samples))
 
+    # use test set as validation set
+    if data_args.use_test_as_dev:
+        logger.info("Using test set as validation set")
+        eval_dataset = predict_dataset
+
     # restrict instances in eval_dataset to those with IDs in specified file
     if data_args.eval_instance_ids_file is not None:
         logger.info(f'Restricting eval_dataset to instances with IDs in: {data_args.eval_instance_ids_file}')
@@ -306,11 +311,6 @@ def main():
             return example['Task'] == data_args.test_task
 
         predict_dataset = predict_dataset.filter(task_filter)
-
-    # use test set as validation set
-    if data_args.use_test_as_dev:
-        logger.info("Using test set as validation set")
-        eval_dataset = predict_dataset
 
     # Data collator
     label_pad_token_id = -100 if data_args.ignore_pad_token_for_loss else tokenizer.pad_token_id
