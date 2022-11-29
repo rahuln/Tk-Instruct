@@ -40,6 +40,9 @@ parser.add_argument('--eval_on_task', type=str, default=None,
                     help='indicates that data_dir contains set of tasks and '
                          'evaluation run should evaluate on tasks rather than '
                          'task categories')
+parser.add_argument('--instance_ids_dir', type=str, default=None,
+                    help='path to directory containing files for each task '
+                         'with instance IDs to use as dev set for that task')
 parser.add_argument('--index', type=int, default=None,
                     help='index of Slurm array job')
 args = parser.parse_args()
@@ -50,6 +53,12 @@ model_to_dirname = {
     'allenai/tk-instruct-base-def-pos' : 'tk-instruct-base',
     'google/t5-base-lm-adapt' : 't5-base-lm-adapt',
 }
+
+# check to make sure we're evaluating at the task level if restricting to
+# certain set of instance IDs for each task
+if args.instance_ids_dir is not None and args.eval_on_task is None:
+    raise ValueError('instance_ids_dir can only be specified if '
+                     'eval_on_task is not None')
 
 # load config file, select task category using index from command line
 with open(args.cfg_file, 'r') as f:
@@ -88,12 +97,21 @@ if args.eval_on_task is not None:
     resdir += '-eval-task'
 if args.finetuned_model_path is not None:
     resdir += '-incl-ft-model'
+if args.instance_ids_dir is not None:
+    inst_ids_dirname = os.path.basename(args.instance_ids_dir)
+    resdir += f'-inst-ids/{inst_ids_dirname}'
 
 # create output directory
 num_dev_suffix = f'-dev-{num_dev}' if args.num_dev is not None else ''
 output_dir = os.path.join('results', dataset, model_dirname, 'evaluate',
                           resdir, args.exp_name + num_dev_suffix, category)
 os.makedirs(output_dir, exist_ok=True)
+
+# construct data directory depending on experiment settings
+if args.instance_ids_dir is not None:
+    data_dir = args.data_dir
+else:
+    data_dir = os.path.join(args.data_dir, category)
 
 # check for existing results
 if os.path.exists(os.path.join(output_dir, 'metrics.json')):
@@ -117,7 +135,7 @@ cmd = ['python', 'src/run_greedy_soup.py',
        '--num_neg_examples=0',
        '--add_explanation=False',
        '--tk_instruct=False',
-       f'--data_dir={args.data_dir}/{category}',
+       f'--data_dir={data_dir}',
        '--task_dir=data/tasks',
        f'--output_dir={output_dir}',
        '--overwrite_output_dir',
@@ -148,6 +166,12 @@ if args.finetuned_model_path is not None:
     finetuned_model = os.path.join(args.finetuned_model_path, category,
                                    'pytorch_model.bin')
     cmd.append(f'--include_models={finetuned_model}')
+
+# specify file containing dev instance IDs as well as test task name for
+# filtering dev/test instances
+if args.instance_ids_dir is not None:
+    cmd.extend([f'--eval_instance_ids_file={args.instance_ids_dir}/{category}.txt',
+                f'--test_task={category}'])
 
 # print command to log file
 print(' '.join(cmd))
