@@ -43,6 +43,8 @@ parser.add_argument('--eval_on_task', type=str, default=None,
 parser.add_argument('--instance_ids_dir', type=str, default=None,
                     help='path to directory containing files for each task '
                          'with instance IDs to use as dev set for that task')
+parser.add_argument('--suffix', type=str, default=None,
+                    help='suffix to add to name of results directory')
 parser.add_argument('--index', type=int, default=None,
                     help='index of Slurm array job')
 args = parser.parse_args()
@@ -100,6 +102,8 @@ if args.finetuned_model_path is not None:
 if args.instance_ids_dir is not None:
     inst_ids_dirname = os.path.basename(args.instance_ids_dir)
     resdir += f'-inst-ids/{inst_ids_dirname}'
+if args.suffix is not None:
+    resdir += f'-{args.suffix}'
 
 # create output directory
 num_dev_suffix = f'-dev-{num_dev}' if args.num_dev is not None else ''
