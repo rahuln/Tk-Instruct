@@ -110,6 +110,14 @@ class SoupDataArguments(DataTrainingArguments):
     Extension of data arguments to handle construction of model soups
     """
 
+    use_train_as_dev: Optional[bool] = field(
+        default=False,
+        metadata={"help": "use training set as dev set"}
+    )
+    use_test_as_dev: Optional[bool] = field(
+        default=False,
+        metadata={"help": "use test set as dev set"}
+    )
     eval_instance_ids_file: Optional[str] = field(
         default=None,
         metadata={"help": "Filename with list of instance IDs to keep in dev set."}
@@ -291,6 +299,11 @@ def main():
     if data_args.use_test_as_dev:
         logger.info("Using test set as validation set")
         eval_dataset = predict_dataset
+
+    # use training set as validation set
+    if data_args.use_train_as_dev:
+        logger.info("Using training set as validation set")
+        eval_dataset = train_dataset
 
     # restrict instances in eval_dataset to those with IDs in specified file
     if data_args.eval_instance_ids_file is not None:

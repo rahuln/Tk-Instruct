@@ -254,10 +254,6 @@ class DataTrainingArguments:
         default=False,
         metadata={"help": "train on dev set instead of training set"}
     )
-    use_test_as_dev: Optional[bool] = field(
-        default=False,
-        metadata={"help": "use test set as dev set"}
-    )
     relative_scales_file: str = field(
         default=None,
         metadata={"help": "path to file with relative scaling factors for tasks for upsampling tasks to be the same size."}
