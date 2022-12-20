@@ -53,6 +53,8 @@ parser.add_argument('--metric_for_best_model', type=str, default='eval_rougeL',
                     help='metric for evaluating the best model')
 parser.add_argument('--greater_is_better', action='store_true',
                     help='greater values of evaluation metric are better')
+parser.add_argument('--remove_saved_model', action='store_true',
+                    help='delete saved model state_dict')
 parser.add_argument('--index', type=int, default=None,
                     help='index of Slurm array job')
 args = parser.parse_args()
@@ -219,4 +221,8 @@ with open(os.path.join(output_dir, 'command.txt'), 'w') as f:
 dirnames = glob(os.path.join(output_dir, 'checkpoint*'))
 for dirname in dirnames:
     shutil.rmtree(dirname)
+
+# remove saved model
+if args.remove_saved_model:
+    os.remove(os.path.join(output_dir, 'pytorch_model.bin'))
 
