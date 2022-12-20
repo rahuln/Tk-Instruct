@@ -20,6 +20,9 @@ parser.add_argument('--model_name_or_path', type=str,
                     help='name of model to load from Huggingface, path to '
                          'model to load, or path to model soup info to '
                          'specify models to merge')
+parser.add_argument('--data_dir', type=str, default=None,
+                    help='data directory for training tasks, overrides '
+                         'value in config file')
 parser.add_argument('--train_on_dev', action='store_true',
                     help='train on dev set instead of test set')
 parser.add_argument('--num_train_epochs', type=int, default=None,
@@ -40,6 +43,10 @@ parser.add_argument('--save_steps', type=int, default=500,
                     help='number of steps between saves')
 parser.add_argument('--num_dev', type=int, default=None,
                     help='number of dev set examples, overrides config')
+parser.add_argument('--train_on_task', type=str, default=None,
+                    help='indicates that data_dir contains set of tasks and '
+                         'training run should train on tasks rather than task '
+                         'categories')
 parser.add_argument('--load_best_model_at_end', action='store_true',
                     help='load model with best dev set performance at end')
 parser.add_argument('--metric_for_best_model', type=str, default='eval_rougeL',
@@ -61,12 +68,19 @@ model_to_dirname = {
 with open(args.cfg_file, 'r') as f:
     cfg = json.load(f)
 
-if args.train_on_dev:
-    category = cfg['test_categories'][args.index]
+if args.train_on_task is not None:
+    with open(args.train_on_task, 'r') as f:
+        tasks = sorted([line.strip() for line in f.readlines()])
+    category = tasks[args.index]
 else:
-    category = cfg['categories'][args.index]
+    if args.train_on_dev:
+        category = cfg['test_categories'][args.index]
+    else:
+        category = cfg['categories'][args.index]
 dataset = cfg.get('dataset', 'niv2')
 data_dir = cfg.get('data_dir', 'data/splits/category')
+if args.data_dir is not None:
+    data_dir = args.data_dir
 if args.train_on_dev and data_dir.endswith('train'):
     data_dir = data_dir.replace('train', 'test')
 use_dev = cfg.get('use_dev', False)
@@ -110,6 +124,7 @@ else:
         model_dirname_prefix = model_name_or_path.split('/')[-1]
     model_dirname = f'{model_dirname_prefix}-experts'
 train_dir = 'train-dev' if args.train_on_dev else 'train'
+train_dir += '-task' if args.train_on_task is not None else ''
 train_dir += '-init-soup' if merging_models else ''
 output_dir = os.path.join('results', dataset, model_dirname, train_dir,
                           args.exp_name, category)
