@@ -457,7 +457,7 @@ def main():
             state_dicts[best_idx] = state_dicts[best_idx].cuda()
             model.add_model(state_dicts[best_idx])
         else:
-            curr_state_dict = merge_state_dicts(curr_state_dict, state_dicts[best_idx])
+            curr_state_dict = merge_state_dicts(curr_state_dict, state_dicts[best_idx], num_averaged=it+1)
         soup_info["models"].append(files[best_idx])
         soup_info["eval_rougeL"].append(best_metric)
 
