@@ -25,6 +25,12 @@ parser.add_argument('--data_dir', type=str, default=None,
                          'value in config file')
 parser.add_argument('--train_on_dev', action='store_true',
                     help='train on dev set instead of test set')
+parser.add_argument('--max_source_length', type=int, default=1024,
+                    help='maximum input length of model in tokens')
+parser.add_argument('--max_target_length', type=int, default=128,
+                    help='maximum output length of model in tokens')
+parser.add_argument('--generation_max_length', type=int, default=128,
+                    help='maximum output length of model generation')
 parser.add_argument('--num_train_epochs', type=int, default=None,
                     help='number of epochs of training')
 parser.add_argument('--max_steps', type=int, default=None,
@@ -55,6 +61,10 @@ parser.add_argument('--greater_is_better', action='store_true',
                     help='greater values of evaluation metric are better')
 parser.add_argument('--remove_saved_model', action='store_true',
                     help='delete saved model state_dict')
+parser.add_argument('--use_causal_lm', action='store_true',
+                    help='train experts using causal LM input format')
+parser.add_argument('--model_dirname_prefix', type=str, default=None,
+                    help='prefix of output directory for model')
 parser.add_argument('--index', type=int, default=None,
                     help='index of Slurm array job')
 args = parser.parse_args()
@@ -95,7 +105,7 @@ if os.path.exists(args.model_name_or_path):
     info_path = os.path.join(args.model_name_or_path, 'soup_info.json')
     if os.path.exists(model_path):
         # loading state_dict from file
-        model_name_or_path = model_path
+        model_name_or_path = args.model_name_or_path
     elif os.path.exists(info_path):
         # merging models given a list of paths to their state_dicts
         base_path = 'results/niv2/tk-instruct-base/saved_model'
@@ -120,7 +130,9 @@ else:
 if merging_models:
     model_dirname = 'tk-instruct-base-experts'
 else:
-    if model_name_or_path in model_to_dirname:
+    if args.model_dirname_prefix is not None:
+        model_dirname_prefix = args.model_dirname_prefix
+    elif model_name_or_path in model_to_dirname:
         model_dirname_prefix = model_to_dirname[model_name_or_path]
     else:
         model_dirname_prefix = model_name_or_path.split('/')[-1]
@@ -147,9 +159,9 @@ cmd = ['python', 'src/run_s2s.py',
        '--do_train',
        '--do_predict',
        '--predict_with_generate',
-       '--max_source_length=1024',
-       '--max_target_length=128',
-       '--generation_max_length=128',
+       f'--max_source_length={args.max_source_length}',
+       f'--max_target_length={args.max_target_length}',
+       f'--generation_max_length={args.generation_max_length}',
        '--max_num_instances_per_eval_task=100',
        '--add_task_name=False',
        '--add_task_definition=True',
@@ -176,7 +188,8 @@ cmd = ['python', 'src/run_s2s.py',
        f'--save_steps={args.save_steps}',
        '--save_total_limit=2',
        f'--run_name={run_name}',
-       f'--train_on_dev={args.train_on_dev}']
+       f'--train_on_dev={args.train_on_dev}',
+       f'--use_causal_lm={args.use_causal_lm}']
 
 # specify model to load or list of models to merge
 if merging_models:
