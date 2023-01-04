@@ -35,6 +35,7 @@ import transformers
 from filelock import FileLock
 from transformers import (
     AutoConfig,
+    AutoModelForCausalLM,
     AutoModelForSeq2SeqLM,
     AutoTokenizer,
     DataCollatorForSeq2Seq,
@@ -122,6 +123,10 @@ class ModelArguments:
             "help": "Whether to automatically resize the position embeddings if `max_source_length` exceeds "
             "the model's position embeddings."
         },
+    )
+    use_causal_lm: bool = field(
+        default=False,
+        metadata={"help": "use causal LM instead of seq2seq model"}
     )
 
 
@@ -372,7 +377,12 @@ def main():
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
     )
-    model = AutoModelForSeq2SeqLM.from_pretrained(
+
+    if model_args.use_causal_lm:
+        auto_model_class = AutoModelForCausalLM
+    else:
+        auto_model_class = AutoModelForSeq2SeqLM
+    model = auto_model_class.from_pretrained(
         model_args.model_name_or_path,
         from_tf=bool(".ckpt" in model_args.model_name_or_path),
         config=config,
@@ -410,8 +420,11 @@ def main():
         else:
             model.config.decoder_start_token_id = tokenizer.convert_tokens_to_ids(data_args.lang)
 
-    if model.config.decoder_start_token_id is None:
+    if model.config.decoder_start_token_id is None and not model_args.use_causal_lm:
         raise ValueError("Make sure that `config.decoder_start_token_id` is correctly defined")
+
+    if model_args.use_causal_lm and tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
 
     if (
         hasattr(model.config, "max_position_embeddings")
@@ -490,7 +503,8 @@ def main():
         num_pos_examples=data_args.num_pos_examples,
         num_neg_examples=data_args.num_neg_examples,
         add_explanation=data_args.add_explanation,
-        tk_instruct=data_args.tk_instruct
+        tk_instruct=data_args.tk_instruct,
+        use_causal_lm=model_args.use_causal_lm,
     )
     # we don't want to remove unused columns because we will prepare each batch during training, 
     # and some of the information will aslo be used in evaluation.
@@ -499,7 +513,19 @@ def main():
     # Metric
 
     def compute_ni_metrics(dataset, preds, save_prefix=None):
+        if model_args.use_causal_lm:
+            # remove invalid generated tokens
+            preds[preds < 0] = tokenizer.eos_token_id
         decoded_preds = tokenizer.batch_decode(preds, skip_special_tokens=True)
+        if model_args.use_causal_lm:
+            # remove all generated tokens other than prediction
+            trimmed_preds = list()
+            for pred in decoded_preds:
+                if 'Output:' not in pred:
+                    trimmed_preds.append(pred)
+                else:
+                    trimmed_preds.append(pred[pred.rindex('Output:')+7:])
+            decoded_preds = trimmed_preds
         references = [e["Instance"]["output"] for e in dataset]
         result = compute_metrics(predictions=decoded_preds, references=references)
         result_per_task = compute_grouped_metrics(predictions=decoded_preds, references=references, groups=dataset["Task"])

@@ -24,6 +24,7 @@ class DataCollatorForNI:
     add_explanation: bool = False
     tk_instruct: bool = False
     text_only: bool=False
+    use_causal_lm: bool = False
     
 
     def __call__(self, batch, return_tensors=None):
@@ -129,6 +130,15 @@ class DataCollatorForNI:
                     break 
             
             source = task_name + definition + "".join(pos_examples) + "".join(neg_examples) + task_input
+
+            # if using causal LM and model is in training mode, add output
+            # label to input sequence here
+            if self.use_causal_lm and "output" in instance["Instance"] \
+                and instance["Instance"]["output"] and self.model.training:
+                # Randomly select one reference if multiple are provided.
+                label = random.choice(instance["Instance"]["output"])
+                source = source + label
+
             tokenized_source = self.tokenizer(source)["input_ids"]
             if len(tokenized_source) <= self.max_source_length:
                 sources.append(source)
@@ -146,7 +156,11 @@ class DataCollatorForNI:
                 truncation=True,
                 pad_to_multiple_of=self.pad_to_multiple_of)
 
-        if "output" in batch[0]["Instance"] and batch[0]["Instance"]["output"]:
+        # if using causal LM, set labels the same as input_ids (to calculate
+        # loss on input tokens of prompt as well as instance input/output)
+        if self.use_causal_lm:
+            model_inputs["labels"] = model_inputs["input_ids"]
+        elif "output" in batch[0]["Instance"] and batch[0]["Instance"]["output"]:
             # Randomly select one reference if multiple are provided.
             labels = [random.choice(ex["Instance"]["output"]) for ex in batch]
             if self.text_only:
@@ -170,5 +184,5 @@ class DataCollatorForNI:
         if self.model is not None and hasattr(self.model, "prepare_decoder_input_ids_from_labels") and not self.text_only:
             decoder_input_ids = self.model.prepare_decoder_input_ids_from_labels(labels=model_inputs["labels"])
             model_inputs["decoder_input_ids"] = decoder_input_ids
-            
+
         return model_inputs
