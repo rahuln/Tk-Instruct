@@ -1,6 +1,8 @@
 """ utility functions """
 
 import os
+import re
+
 import torch
 
 
@@ -11,7 +13,7 @@ def send_to_device(state_dict, device):
     return state_dict
 
 
-def merge_models(model, models_to_merge, weights=None):
+def merge_models(model, models_to_merge, weights=None, pattern='.*'):
     """ load a set of T5 models with paths given in models_to_merge, perform a
         uniform weighted average of their parameters, and then load the
         parameters into the specified model object """
@@ -23,6 +25,7 @@ def merge_models(model, models_to_merge, weights=None):
         raise ValueError('number of models and weights must match')
 
     # loop through models, averaging their parameters
+    model_state_dict = model.state_dict()
     merged_state_dict = {name : 0. for name, param in model.named_parameters()}
     merged_state_dict.update({'encoder.embed_tokens.weight' : 0.,
                               'decoder.embed_tokens.weight' : 0.,
@@ -38,13 +41,17 @@ def merge_models(model, models_to_merge, weights=None):
         else:
             state_dict = path
         for name, param in state_dict.items():
-            merged_state_dict[name] += weight * param
+            # only update parameter if its name matches the pattern
+            if re.match(pattern, name):
+                merged_state_dict[name] += weight * param
+            else:
+                merged_state_dict[name] = model_state_dict[name]
 
     # load merged parameters into model
     model.load_state_dict(merged_state_dict)
 
 
-def merge_state_dicts(state_dict1, state_dict2, num_averaged=1):
+def merge_state_dicts(state_dict1, state_dict2, num_averaged=1, pattern='.*'):
     """ merge parameters for the given state_dicts by averaging, where the
         first state_dict is already an average over num_averaged models """
 
@@ -56,8 +63,12 @@ def merge_state_dicts(state_dict1, state_dict2, num_averaged=1):
     denom = num_averaged + 1
     merged_state_dict = dict()
     for name, param1 in state_dict1.items():
-        param2 = state_dict2[name]
-        merged_state_dict[name] = (num_averaged * param1 + param2) / denom
+        # only update parameter if its name matches the pattern
+        if re.match(pattern, name):
+            param2 = state_dict2[name]
+            merged_state_dict[name] = (num_averaged * param1 + param2) / denom
+        else:
+            merged_state_dict[name] = param1
 
     return merged_state_dict
 
