@@ -25,6 +25,7 @@ import json
 from dataclasses import dataclass, field
 from copy import deepcopy
 from glob import glob
+from itertools import product
 from time import time
 from typing import List, Optional
 
@@ -102,6 +103,10 @@ class SoupModelArguments(ModelArguments):
     include_models: Optional[List[str]] = field(
         default=None,
         metadata={"help": "Specific paths to other models to include as soup components."}
+    )
+    param_groups: Optional[List[str]] = field(
+        default=None,
+        metadata={"help": "Regex patterns for parameter names to form parameter groups."}
     )
 
 @dataclass
@@ -429,19 +434,32 @@ def main():
     else:
         model.load_state_dict(state_dicts[best_idx])
 
+    # get patterns for parameter groups
+    if model_args.param_groups is not None:
+        if model_args.output_ensemble:
+            raise ValueError('parameter groups are currently not supported '
+                             'when using an output ensemble')
+        if len(model_args.param_groups) == 1:
+            param_groups = model_args.param_groups[0].split(',')
+        else:
+            param_groups = model_args.param_groups
+        logger.info(f"Using parameter groups: {param_groups}")
+    else:
+        param_groups = [".*"]
+
     # for maximum number of iterations, add a model to the soup based on performance
     if not model_args.output_ensemble:
         curr_state_dict = deepcopy(model.state_dict())
     for it in range(model_args.max_soup_size - 1):
         logger.info(f"Running evaluation {it+2} / {model_args.max_soup_size}")
         prev_best_metric = best_metric
-        for idx, state_dict in enumerate(state_dicts):
+        for idx, (state_dict, pattern) in enumerate(product(state_dicts, param_groups)):
             if model_args.output_ensemble:
                 state_dict = state_dict.cuda()
                 model.add_model(state_dict)
                 model.send_to_device('cuda:0')
             else:
-                new_state_dict = merge_state_dicts(curr_state_dict, state_dict, num_averaged=it+1)
+                new_state_dict = merge_state_dicts(curr_state_dict, state_dict, num_averaged=it+1, pattern=pattern)
                 model.load_state_dict(new_state_dict)
             metrics = trainer.evaluate(max_length=max_length, num_beams=num_beams, metric_key_prefix="eval")
             if metrics["eval_rougeL"] > best_metric:
@@ -456,9 +474,12 @@ def main():
         if model_args.output_ensemble:
             state_dicts[best_idx] = state_dicts[best_idx].cuda()
             model.add_model(state_dicts[best_idx])
+            soup_info["models"].append(files[best_idx])
         else:
-            curr_state_dict = merge_state_dicts(curr_state_dict, state_dicts[best_idx], num_averaged=it+1)
-        soup_info["models"].append(files[best_idx])
+            best_state_dict = state_dicts[best_idx // len(param_groups)]
+            best_pattern = param_groups[best_idx % len(param_groups)]
+            curr_state_dict = merge_state_dicts(curr_state_dict, best_state_dict, num_averaged=it+1, pattern=best_pattern)
+            soup_info["models"].append((files[best_idx // len(param_groups)], best_pattern))
         soup_info["eval_rougeL"].append(best_metric)
 
     # load state_dict for best soup into model
