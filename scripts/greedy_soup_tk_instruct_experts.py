@@ -45,6 +45,8 @@ parser.add_argument('--eval_on_task', type=str, default=None,
 parser.add_argument('--instance_ids_dir', type=str, default=None,
                     help='path to directory containing files for each task '
                          'with instance IDs to use as dev set for that task')
+parser.add_argument('--param_groups', type=str, default=None,
+                    help='regex patterns for parameter groups')
 parser.add_argument('--suffix', type=str, default=None,
                     help='suffix to add to name of results directory')
 parser.add_argument('--index', type=int, default=None,
@@ -181,6 +183,10 @@ if args.finetuned_model_path is not None:
 if args.instance_ids_dir is not None:
     cmd.extend([f'--eval_instance_ids_file={args.instance_ids_dir}/{category}.txt',
                 f'--test_task={category}'])
+
+# specify parameter groups
+if args.param_groups is not None:
+    cmd.append(f'--param_groups={args.param_groups}')
 
 # print command to log file
 print(' '.join(cmd))
