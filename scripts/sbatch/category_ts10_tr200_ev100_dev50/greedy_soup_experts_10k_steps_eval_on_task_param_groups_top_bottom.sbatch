@@ -25,6 +25,6 @@ python scripts/greedy_soup_tk_instruct_experts.py \
     --include_base_model \
     --start_with_base_model \
     --eval_on_task data/splits/category-ts10-tr200-ev100/test/all/train_tasks.txt \
-    --param_groups "(.*block.[0-5]\..*),(.*block.([6-9]|10|11)\..*|.*final_layer_norm.*)" \
-    --suffix param-group-top-bot \
+    --param_groups "(.*block.[0-5]\..*),(.*block.([6-9]|10|11)\..*|.*final_layer_norm.*),.*" \
+    --suffix param-group-top-bot-full \
     --index $SLURM_ARRAY_TASK_ID

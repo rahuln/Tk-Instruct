@@ -25,6 +25,6 @@ python scripts/greedy_soup_tk_instruct_experts.py \
     --include_base_model \
     --start_with_base_model \
     --eval_on_task data/splits/category-ts10-tr200-ev100/test/all/train_tasks.txt \
-    --param_groups "(encoder.*layer.0.*|decoder.*layer.0.*|decoder.*layer.1.*),(encoder.*layer.1.*|decoder.*layer.2.*|.*final_layer_norm.*)" \
-    --suffix param-group-att-ffw \
+    --param_groups "(encoder.*layer.0.*|decoder.*layer.0.*|decoder.*layer.1.*),(encoder.*layer.1.*|decoder.*layer.2.*|.*final_layer_norm.*),.*" \
+    --suffix param-group-att-ffw-full \
     --index $SLURM_ARRAY_TASK_ID

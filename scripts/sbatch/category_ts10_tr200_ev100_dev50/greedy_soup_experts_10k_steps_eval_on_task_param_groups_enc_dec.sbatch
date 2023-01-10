@@ -25,6 +25,6 @@ python scripts/greedy_soup_tk_instruct_experts.py \
     --include_base_model \
     --start_with_base_model \
     --eval_on_task data/splits/category-ts10-tr200-ev100/test/all/train_tasks.txt \
-    --param_groups "(decoder.block.*|decoder.final_layer_norm.*),(encoder.block.*|encoder.final_layer_norm.*)" \
-    --suffix param-group-enc-dec \
+    --param_groups "(decoder.block.*|decoder.final_layer_norm.*),(encoder.block.*|encoder.final_layer_norm.*),.*" \
+    --suffix param-group-enc-dec-full \
     --index $SLURM_ARRAY_TASK_ID
