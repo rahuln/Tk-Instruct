@@ -29,15 +29,7 @@
                    "text_to_code", "toxic_language_detection", "translation",
                    "word_relation_classification", "word_semantics",
                    "wrong_candidate_generation"],
-    "test_categories": ["answerability_classification",
-                        "cause_effect_classification",
-                        "coreference_resolution", "data_to_text",
-                        "dialogue_act_recognition", "grammar_error_correction",
-                        "keyword_tagging", "overlap_extraction",
-                        "question_rewriting", "textual_entailment",
-                        "title_generation", "word_analogy"],
     "run_name_fmt": "experts/category/{category}",
-    "data_dir": "data/splits/category/train",
-    "use_dev": false
+    "data_dir": "data/splits/category"
 }
 
