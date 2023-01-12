@@ -450,6 +450,7 @@ def main():
     # for maximum number of iterations, add a model to the soup based on performance
     if not model_args.output_ensemble:
         curr_state_dict = deepcopy(model.state_dict())
+    num_averaged = {pattern : 1 for pattern in param_groups}
     for it in range(model_args.max_soup_size - 1):
         logger.info(f"Running evaluation {it+2} / {model_args.max_soup_size}")
         prev_best_metric = best_metric
@@ -459,7 +460,7 @@ def main():
                 model.add_model(state_dict)
                 model.send_to_device('cuda:0')
             else:
-                new_state_dict = merge_state_dicts(curr_state_dict, state_dict, num_averaged=it+1, pattern=pattern)
+                new_state_dict = merge_state_dicts(curr_state_dict, state_dict, num_averaged=num_averaged[pattern], pattern=pattern)
                 model.load_state_dict(new_state_dict)
             metrics = trainer.evaluate(max_length=max_length, num_beams=num_beams, metric_key_prefix="eval")
             if metrics["eval_rougeL"] > best_metric:
@@ -478,7 +479,12 @@ def main():
         else:
             best_state_dict = state_dicts[best_idx // len(param_groups)]
             best_pattern = param_groups[best_idx % len(param_groups)]
-            curr_state_dict = merge_state_dicts(curr_state_dict, best_state_dict, num_averaged=it+1, pattern=best_pattern)
+            curr_state_dict = merge_state_dicts(curr_state_dict, best_state_dict, num_averaged=num_averaged[pattern], pattern=best_pattern)
+            if best_pattern == '.*':
+                for pattern in param_groups:
+                    num_averaged[pattern] += 1
+            else:
+                num_averaged[best_pattern] += 1
             soup_info["models"].append((files[best_idx // len(param_groups)], best_pattern))
         soup_info["eval_rougeL"].append(best_metric)
 
