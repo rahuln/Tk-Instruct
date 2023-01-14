@@ -5,6 +5,7 @@ from argparse import ArgumentParser
 from glob import glob
 import json
 import os
+import string
 import sys
 import subprocess
 
@@ -43,6 +44,8 @@ parser.add_argument('--num_experts_to_merge', type=int, default=-1,
                     help='number of highest-likelihood experts to merge')
 parser.add_argument('--use_merging_weights', action='store_true',
                     help='use weighted merge (instead of uniform average)')
+parser.add_argument('--num_pos_examples', type=int, default=0,
+                    help='number of positive examples to include in prompt')
 parser.add_argument('--suffix', type=str, default=None,
                     help='suffix to add to results directory name '
                          '(e.g., what type of embeddings were used)')
@@ -52,6 +55,45 @@ parser.add_argument('--cache_dir', type=str,
 parser.add_argument('--index', type=int, default=None,
                     help='index of Slurm array job')
 args = parser.parse_args()
+
+
+def get_task_prompt(task_info, tokenizer, max_length=768, num_pos_examples=0):
+    """ construct prompt for task using definition and positive examples """
+
+    # add task definition
+    defn = f'Definition: {task_info["Definition"][0]}'
+    if defn[-1] not in string.punctuation:
+        defn += '.'
+    defn  += '\n\n'
+
+    # add specified number of positive examples
+    pos_examples = list()
+    if num_pos_examples > 0:
+        pos_examples_list = task_info['Positive Examples'][:num_pos_examples]
+        for idx, pos_example in enumerate(pos_examples_list):
+            pos_example_str = f' Positive Example {idx+1} -\n'
+            pos_example_str += f'Input: {pos_example["input"].strip()}'
+            if not pos_example_str[-1] in string.punctuation:
+                pos_example_str += '.'
+            pos_example_str += f' Output: {pos_example["output"].strip()}'
+            if not pos_example_str[-1] in string.punctuation:
+                pos_example_str += '.'
+            pos_example_str += '\n\n'
+            curr_prompt = defn + ' '.join(pos_examples) + pos_example_str
+            if len(tokenizer(curr_prompt)['input_ids']) <= max_length:
+                pos_examples.append(pos_example_str)
+            else:
+                break
+
+    # combine components of prompt, truncate if necessary
+    prompt = defn + ''.join(pos_examples)
+    tokenized_prompt = tokenizer(prompt)['input_ids']
+    if len(tokenized_prompt) > max_length:
+        prompt = tokenizer.decode(tokenized_prompt[:max_length],
+                                  skip_special_tokens=True)
+
+    return prompt
+
 
 # mapping between Huggingface model names and output directory names
 model_to_dirname = {
@@ -87,20 +129,21 @@ assert len(likelihood_model_paths) == len(expert_model_paths), 'lengths'
 for lik_path, exp_path in zip(likelihood_model_paths, expert_model_paths):
     assert os.path.basename(lik_path) == os.path.basename(exp_path), 'names'
 
-# load info for task, get task definition
+# load info for task
 with open(os.path.join(args.task_dir, f'{task}.json'), 'r') as f:
     task_info = json.load(f)
-defn = f'Definition: {task_info["Definition"][0]}'
 
 # for each autoregressive LM expert, calculate the probability of the task
-# definition
+# prompt
 tokenizer = AutoTokenizer.from_pretrained(args.likelihood_model,
                                           cache_dir=args.cache_dir)
+prompt = get_task_prompt(task_info, tokenizer,
+                         num_pos_examples=args.num_pos_examples)
 losses = np.zeros(len(likelihood_model_paths))
-desc = 'calculating defn losses'
+desc = 'calculating prompt losses'
 for i, dirname in enumerate(tqdm(likelihood_model_paths, desc=desc)):
     model = AutoModelForCausalLM.from_pretrained(dirname).cuda()
-    inputs = tokenizer(defn, return_tensors='pt').to('cuda')
+    inputs = tokenizer(prompt, return_tensors='pt').to('cuda')
     inputs['labels'] = inputs['input_ids']
     with torch.no_grad():
         outputs = model(**inputs, return_dict=True)
@@ -135,6 +178,9 @@ else:
     resdir += f'top-{args.num_experts_to_merge}-experts'
 if args.use_merging_weights:
     resdir += '-weighted-merge'
+resdir += '-def'
+if args.num_pos_examples > 0:
+    resdir += f'-{args.num_pos_examples}pos'
 suffix = f'-{args.suffix}' if args.suffix is not None else ''
 resdir = resdir + suffix
 output_dir = os.path.join('results', dataset, model_dirname, 'evaluate',
