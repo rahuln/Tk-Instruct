@@ -20,6 +20,9 @@ parser.add_argument('--data_dir', type=str, default='data/splits/default',
                     help='data directory for evaluation tasks')
 parser.add_argument('--eval_dirname', type=str, default='test',
                     help='name for evaluation results directory')
+parser.add_argument('--base_model', type=str,
+                    default='allenai/tk-instruct-base-def-pos',
+                    help='name of or path to base model')
 parser.add_argument('--max_num_instances_per_task', type=int, default=None,
                     help='maximum number of training instances per task')
 parser.add_argument('--random_merge', type=int, default=0,
@@ -30,6 +33,13 @@ parser.add_argument('--seed', type=int, default=42,
 parser.add_argument('--index', type=int, default=None,
                     help='index of Slurm array job')
 args = parser.parse_args()
+
+
+# mapping between Huggingface model names and output directory names
+model_to_dirname = {
+    'allenai/tk-instruct-base-def-pos' : 'tk-instruct-base',
+    'google/t5-base-lm-adapt' : 't5-base-lm-adapt',
+}
 
 # load config file, select task category using index from command line
 with open(args.cfg_file, 'r') as f:
@@ -43,11 +53,17 @@ dataset = cfg.get('dataset', 'niv2')
 use_dev = cfg.get('use_dev', False)
 num_dev = cfg.get('num_dev', 50)
 
+# get name of model
+if args.base_model in model_to_dirname:
+    model_dirname = model_to_dirname[args.base_model]
+else:
+    model_dirname = args.base_model.replace('/', '-')
+
 # specify model path
 if args.random_merge > 0:
     np.random.seed(args.seed)
     path_to_soup_components = os.path.join('results', dataset,
-                                           'tk-instruct-base-experts',
+                                           f'{model_dirname}-experts',
                                            'train', args.exp_name)
     experts = sorted(glob(os.path.join(path_to_soup_components, '*')))
     idx = np.random.choice(len(experts), size=args.random_merge, replace=False)
@@ -55,12 +71,12 @@ if args.random_merge > 0:
     data_dir = os.path.join(args.data_dir, category)
 else:
     model_name_or_path = os.path.join('results', dataset,
-                                      'tk-instruct-base-experts', 'train',
+                                      f'{model_dirname}-experts', 'train',
                                       args.exp_name, category)
     data_dir = args.data_dir
 
 # create output directory
-output_dir = os.path.join('results', dataset, 'tk-instruct-base-experts',
+output_dir = os.path.join('results', dataset, f'{model_dirname}-experts',
                           'evaluate', args.eval_dirname, args.exp_name,
                           category)
 os.makedirs(output_dir, exist_ok=True)
@@ -95,7 +111,7 @@ cmd = ['python', 'src/run_s2s.py',
 
 # specify model(s) to use
 if args.random_merge > 0:
-    cmd.extend(['--model_name_or_path=allenai/tk-instruct-base-def-pos',
+    cmd.extend([f'--model_name_or_path={args.base_model}',
                 f'--models_to_merge={models_to_merge}'])
 else:
     cmd.append(f'--model_name_or_path={model_name_or_path}')
