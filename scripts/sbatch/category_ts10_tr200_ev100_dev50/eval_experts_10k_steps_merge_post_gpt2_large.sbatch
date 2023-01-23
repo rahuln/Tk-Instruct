@@ -20,8 +20,8 @@ export WANDB_DISABLED=true
 
 python scripts/eval_tk_instruct_experts_merge_posterior.py \
     scripts/config/category_ts10_tr200_ev100_dev50.json \
-    results/niv2-ts10-tr200-ev100-dev50/gpt2-large-experts/train/all-instances-10000-steps \
     results/niv2-ts10-tr200-ev100-dev50/tk-instruct-base-experts/train/all-instances-10000-steps \
+    --path_to_likelihood_models results/niv2-ts10-tr200-ev100-dev50/gpt2-large-experts/train/all-instances-10000-steps \
     --exp_name all-instances-10000-steps \
     --data_dir data/splits/tasks/test \
     --max_num_instances_per_task 100 \

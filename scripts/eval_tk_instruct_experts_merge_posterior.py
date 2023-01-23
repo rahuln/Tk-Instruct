@@ -12,17 +12,24 @@ import subprocess
 import numpy as np
 from scipy.special import softmax
 import torch
-from transformers import AutoTokenizer, AutoModelForCausalLM
+from transformers import (
+    AutoTokenizer,
+    AutoModelForCausalLM,
+    AutoModelForSequenceClassification,
+)
 from tqdm import tqdm
 
 
 # command-line arguments
 parser = ArgumentParser()
 parser.add_argument('cfg_file', type=str, help='path to config file')
-parser.add_argument('path_to_likelihood_models', type=str,
-                    help='path to directory with autoregressive LM experts')
 parser.add_argument('path_to_experts', type=str,
                     help='path to directory with experts to be merged')
+parser.add_argument('--path_to_likelihood_models', type=str, default=None,
+                    help='path to directory with autoregressive LM experts')
+parser.add_argument('--path_to_category_classifier', type=str, default=None,
+                    help='path to directory with saved model that classifies '
+                         'task category from instruction')
 parser.add_argument('--exp_name', type=str, default='exp',
                     help='name of experiment (e.g., number of training steps)')
 parser.add_argument('--likelihood_model', type=str, default='gpt2-large',
@@ -101,6 +108,17 @@ model_to_dirname = {
     'google/t5-base-lm-adapt' : 't5-base-lm-adapt',
 }
 
+# ensure that either likelihood models or category classifier is specified,
+# and that only one is specified
+if args.path_to_likelihood_models is None \
+    and args.path_to_category_classifier is None:
+    raise ValueError('must specify path to either likelihood models or task '
+                     'category classifier')
+elif args.path_to_likelihood_models is not None \
+    and args.path_to_category_classifier is not None:
+    raise ValueError('must specify only one of path to likelihood models or '
+                     'task category classifier')
+
 # load config file, get settings from config
 with open(args.cfg_file, 'r') as f:
     cfg = json.load(f)
@@ -116,39 +134,59 @@ else:
     tasks = sorted(os.listdir(args.data_dir))
 task = tasks[args.index]
 
-# find autoregressive LM experts used to calculate likelihood of prompt
-files = sorted(glob(os.path.join(args.path_to_likelihood_models, '**',
-                                 'pytorch_model.bin'), recursive=True))
-likelihood_model_paths = [os.path.dirname(fname) for fname in files]
-
-# find experts that will be merged, check that they match likelihood models
-files = sorted(glob(os.path.join(args.path_to_experts, '**',
-                                 'pytorch_model.bin'), recursive=True))
-expert_model_paths = [os.path.dirname(fname) for fname in files]
-assert len(likelihood_model_paths) == len(expert_model_paths), 'lengths'
-for lik_path, exp_path in zip(likelihood_model_paths, expert_model_paths):
-    assert os.path.basename(lik_path) == os.path.basename(exp_path), 'names'
-
-# load info for task
+# load info for target task
 with open(os.path.join(args.task_dir, f'{task}.json'), 'r') as f:
     task_info = json.load(f)
 
-# for each autoregressive LM expert, calculate the probability of the task
-# prompt
-tokenizer = AutoTokenizer.from_pretrained(args.likelihood_model,
-                                          cache_dir=args.cache_dir)
-prompt = get_task_prompt(task_info, tokenizer,
-                         num_pos_examples=args.num_pos_examples)
-losses = np.zeros(len(likelihood_model_paths))
-desc = 'calculating prompt losses'
-for i, dirname in enumerate(tqdm(likelihood_model_paths, desc=desc)):
-    model = AutoModelForCausalLM.from_pretrained(dirname).cuda()
-    inputs = tokenizer(prompt, return_tensors='pt').to('cuda')
-    inputs['labels'] = inputs['input_ids']
+# find experts that will be merged
+files = sorted(glob(os.path.join(args.path_to_experts, '**',
+                                 'pytorch_model.bin'), recursive=True))
+expert_model_paths = [os.path.dirname(fname) for fname in files]
+
+if args.path_to_likelihood_models is not None:
+
+    # find autoregressive LM experts used to calculate likelihood of prompt,
+    # check that they match likelihood models
+    files = sorted(glob(os.path.join(args.path_to_likelihood_models, '**',
+                                     'pytorch_model.bin'), recursive=True))
+    likelihood_model_paths = [os.path.dirname(fname) for fname in files]
+    assert len(likelihood_model_paths) == len(expert_model_paths), 'lengths'
+    for lik_path, exp_path in zip(likelihood_model_paths, expert_model_paths):
+        assert os.path.basename(lik_path) == os.path.basename(exp_path)
+
+    # for each autoregressive LM expert, calculate the probability of the task
+    # prompt
+    tokenizer = AutoTokenizer.from_pretrained(args.likelihood_model,
+                                              cache_dir=args.cache_dir)
+    prompt = get_task_prompt(task_info, tokenizer,
+                             num_pos_examples=args.num_pos_examples)
+    losses = np.zeros(len(likelihood_model_paths))
+    desc = 'calculating prompt losses'
+    for i, dirname in enumerate(tqdm(likelihood_model_paths, desc=desc)):
+        model = AutoModelForCausalLM.from_pretrained(dirname).cuda()
+        inputs = tokenizer(prompt, return_tensors='pt').to('cuda')
+        inputs['labels'] = inputs['input_ids']
+        with torch.no_grad():
+            outputs = model(**inputs, return_dict=True)
+        losses[i] = outputs.loss.item()
+    merging_weights = np.exp(-losses)   # convert neg log-probs to probs
+
+elif args.path_to_category_classifier is not None:
+
+    # load classifier and its tokenizer
+    tokenizer = AutoTokenizer.from_pretrained(args.path_to_category_classifier)
+    classifier = AutoModelForSequenceClassification.from_pretrained(
+        args.path_to_category_classifier).cuda()
+
+    # calculate merging weights based on task category output logits using
+    # target task instruction as input
+    inputs = tokenizer(task_info['Definition'][0], truncation=True,
+                       max_length=tokenizer.model_max_length,
+                       return_tensors='pt').to('cuda')
     with torch.no_grad():
-        outputs = model(**inputs, return_dict=True)
-    losses[i] = outputs.loss.item()
-merging_weights = np.exp(-losses)   # convert neg log-probs to probs
+        outputs = classifier(**inputs, return_dict=True)
+    logits = outputs.logits.detach().flatten().cpu().numpy()
+    merging_weights = np.log(softmax(logits))
 
 # specify paths to models to be merged and merging weights
 if args.num_experts_to_merge == -1: # merge all experts
@@ -171,7 +209,11 @@ else:
 model_dirname = f'{model_dirname_prefix}-experts'
 
 # create output directory
-resdir = f'likelihood-merge/'
+if args.path_to_likelihood_models is not None:
+    resdir = 'likelihood-merge/'
+elif args.path_to_category_classifier is not None:
+    resdir = 'classifier-merge/'
+
 if args.num_experts_to_merge == -1:
     resdir += 'all-experts'
 else:
