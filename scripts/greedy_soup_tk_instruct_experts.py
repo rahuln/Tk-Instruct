@@ -36,6 +36,8 @@ parser.add_argument('--use_train_as_dev', action='store_true',
                     help='use training set as validation set')
 parser.add_argument('--use_test_as_dev', action='store_true',
                     help='use test set as validation set')
+parser.add_argument('--use_dev', action='store_true',
+                    help='use dev set, overriding value in config file')
 parser.add_argument('--num_dev', type=int, default=None,
                     help='number of dev set examples, overrides config')
 parser.add_argument('--eval_on_task', type=str, default=None,
@@ -77,7 +79,7 @@ if args.eval_on_task is not None:
 else:
     category = cfg['test_categories'][args.index]
 dataset = cfg.get('dataset', 'niv2')
-use_dev = cfg.get('use_dev', False)
+use_dev = args.use_dev or cfg.get('use_dev', False)
 num_dev = args.num_dev if args.num_dev is not None else cfg.get('num_dev', 50)
 
 # get model directory name from base model
