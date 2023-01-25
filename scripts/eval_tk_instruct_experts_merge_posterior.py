@@ -51,6 +51,8 @@ parser.add_argument('--num_experts_to_merge', type=int, default=-1,
                     help='number of highest-likelihood experts to merge')
 parser.add_argument('--use_merging_weights', action='store_true',
                     help='use weighted merge (instead of uniform average)')
+parser.add_argument('--temperature', type=float, default=None,
+                    help='temperature parameter for softmax')
 parser.add_argument('--num_pos_examples', type=int, default=0,
                     help='number of positive examples to include in prompt')
 parser.add_argument('--suffix', type=str, default=None,
@@ -189,9 +191,10 @@ elif args.path_to_category_classifier is not None:
     merging_weights = np.log(softmax(logits))
 
 # specify paths to models to be merged and merging weights
+temperature = args.temperature if args.temperature is not None else 1.
 if args.num_experts_to_merge == -1: # merge all experts
     models_to_merge = ','.join(expert_model_paths)
-    merging_weights = softmax(merging_weights)
+    merging_weights = softmax(merging_weights / temperature)
 else:
     indices = np.argsort(merging_weights)[::-1]   # sort in descending order
     models_to_merge = [expert_model_paths[idx] for idx
@@ -199,7 +202,7 @@ else:
     models_to_merge = ','.join(models_to_merge)
     merging_weights = [merging_weights[idx] for idx
                        in indices[:args.num_experts_to_merge]]
-    merging_weights = softmax(merging_weights)
+    merging_weights = softmax(merging_weights / temperature)
 
 # get model directory name from base model
 if args.base_model in model_to_dirname:
@@ -223,6 +226,8 @@ if args.use_merging_weights:
 resdir += '-def'
 if args.num_pos_examples > 0:
     resdir += f'-{args.num_pos_examples}pos'
+if args.temperature is not None:
+    resdir += f'-temp{args.temperature:.3f}'
 suffix = f'-{args.suffix}' if args.suffix is not None else ''
 resdir = resdir + suffix
 output_dir = os.path.join('results', dataset, model_dirname, 'evaluate',
