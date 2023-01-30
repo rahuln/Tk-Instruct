@@ -43,8 +43,14 @@ parser.add_argument('--max_num_instances_per_task', type=int, default=None,
                     help='maximum number of training instances per task')
 parser.add_argument('--logging_steps', type=int, default=10,
                     help='number of steps between logging outputs')
+parser.add_argument('--evaluation_strategy', type=str, default='no',
+                    choices=['no', 'steps', 'epoch'],
+                    help='strategy for evaluation on dev set')
 parser.add_argument('--eval_steps', type=int, default=0,
                     help='number of steps before each evaluation')
+parser.add_argument('--save_strategy', type=str, default='steps',
+                    choices=['no', 'steps', 'epoch'],
+                    help='strategy for saving checkpoints')
 parser.add_argument('--save_steps', type=int, default=500,
                     help='number of steps between saves')
 parser.add_argument('--num_dev', type=int, default=None,
@@ -182,9 +188,9 @@ cmd = ['python', 'src/run_s2s.py',
        '--warmup_steps=0',
        '--logging_strategy=steps',
        f'--logging_steps={args.logging_steps}',
-       f'--evaluation_strategy={"steps" if args.eval_steps > 0 else "no"}',
+       f'--evaluation_strategy={"steps" if args.eval_steps > 0 else args.evaluation_strategy}',
        f'--eval_steps={args.eval_steps}',
-       '--save_strategy=steps',
+       f'--save_strategy={args.save_strategy}',
        f'--save_steps={args.save_steps}',
        '--save_total_limit=2',
        f'--run_name={run_name}',
