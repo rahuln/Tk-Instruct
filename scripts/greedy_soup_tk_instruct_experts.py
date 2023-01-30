@@ -49,6 +49,10 @@ parser.add_argument('--instance_ids_dir', type=str, default=None,
                          'with instance IDs to use as dev set for that task')
 parser.add_argument('--param_groups', type=str, default=None,
                     help='regex patterns for parameter groups')
+parser.add_argument('--num_experts', type=int, default=None,
+                    help='number of randomly selected experts to use instead '
+                         'of the full set')
+parser.add_argument('--seed', type=int, default=42, help='random seed')
 parser.add_argument('--suffix', type=str, default=None,
                     help='suffix to add to name of results directory')
 parser.add_argument('--index', type=int, default=None,
@@ -154,6 +158,7 @@ cmd = ['python', 'src/run_greedy_soup.py',
        '--cache_dir=/gscratch/ark/rahuln/.cache',
        '--overwrite_cache',
        '--per_device_eval_batch_size=4',
+       f'--seed={args.seed}',
        f'--path_to_soup_components={path_to_soup_components}',
        f'--max_soup_size={args.max_soup_size}',
        f'--include_base_model={args.include_base_model}',
@@ -189,6 +194,10 @@ if args.instance_ids_dir is not None:
 # specify parameter groups
 if args.param_groups is not None:
     cmd.append(f'--param_groups={args.param_groups}')
+
+# specify number of randomly selected experts
+if args.num_experts is not None:
+    cmd.append(f'--num_experts={args.num_experts}')
 
 # print command to log file
 print(' '.join(cmd))
