@@ -101,7 +101,7 @@ if args.data_dir is not None:
     data_dir = args.data_dir
 if args.train_on_dev and data_dir.endswith('train'):
     data_dir = data_dir.replace('train', 'test')
-use_dev = cfg.get('use_dev', False)
+use_dev = True if args.num_dev is not None else cfg.get('use_dev', False)
 num_dev = args.num_dev if args.num_dev is not None else cfg.get('num_dev', 50)
 
 # get path to model or list of models to merge
