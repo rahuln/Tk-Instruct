@@ -108,6 +108,10 @@ class SoupModelArguments(ModelArguments):
         default=None,
         metadata={"help": "Regex patterns for parameter names to form parameter groups."}
     )
+    num_experts: Optional[int] = field(
+        default=None,
+        metadata={"help": "Number of randomly-selected experts to use instead of full set."}
+    )
 
 @dataclass
 class SoupDataArguments(DataTrainingArguments):
@@ -262,6 +266,13 @@ def main():
         else:
             state_dicts.insert(0, send_to_device(model.state_dict(), 'cpu'))
         files.insert(0, model_args.model_name_or_path)
+
+    # select random subset of experts to use instead of full set
+    if model_args.num_experts is not None:
+        logger.info(f"Using {model_args.num_experts} random experts out of {len(files)}")
+        idxs = torch.randperm(len(files))[:model_args.num_experts].tolist()
+        state_dicts = [state_dicts[idx] for idx in idxs]
+        files = [files[idx] for idx in idxs]
 
     if (
         hasattr(model.config, "max_position_embeddings")
