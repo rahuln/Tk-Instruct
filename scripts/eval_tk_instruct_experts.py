@@ -28,6 +28,8 @@ parser.add_argument('--max_num_instances_per_task', type=int, default=None,
 parser.add_argument('--random_merge', type=int, default=0,
                     help='evaluate by merging the specified number of '
                          'experts, randomly selected from trained experts')
+parser.add_argument('--num_dev', type=int, default=None,
+                    help='number of dev set examples, overrides config')
 parser.add_argument('--seed', type=int, default=42,
                     help='seed for selecting random set of experts')
 parser.add_argument('--index', type=int, default=None,
@@ -50,8 +52,8 @@ else:
     categories = cfg['categories']
 category = categories[args.index]
 dataset = cfg.get('dataset', 'niv2')
-use_dev = cfg.get('use_dev', False)
-num_dev = cfg.get('num_dev', 50)
+use_dev = True if args.num_dev is not None else cfg.get('use_dev', False)
+num_dev = args.num_dev if args.num_dev is not None else cfg.get('num_dev', 50)
 
 # get name of model
 if args.base_model in model_to_dirname:
