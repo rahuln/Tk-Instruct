@@ -32,6 +32,9 @@ parser.add_argument('--use-all-tasks-for-eval', action='store_true',
                     help='use all training tasks for dev and test sets in '
                          'training task directories, instead of just using '
                          'the tasks for that task category')
+parser.add_argument('--include-tasks', type=str, default=None,
+                    help='path to file with list of tasks to include (all '
+                         'other tasks are excluded)')
 
 
 if __name__ == '__main__':
@@ -92,6 +95,17 @@ if __name__ == '__main__':
         test_categories = {key : value for key, value
                            in test_categories.items()
                            if all([task in test_tasks for task in value])}
+
+    # filter out tasks not in list of tasks to include
+    if args.include_tasks is not None:
+        with open(args.include_tasks, 'r') as f:
+            tasks_to_include = set([line.strip() for line in f.readlines()])
+        train_categories = {key : [task for task in value
+                                   if task in tasks_to_include]
+                            for key, value in train_categories.items()}
+        test_categories = {key : [task for task in value
+                                  if task in tasks_to_include]
+                           for key, value in test_categories.items()}
 
     all_train_tasks = sorted(chain(*train_categories.values()))
     all_test_tasks = sorted(chain(*test_categories.values()))
