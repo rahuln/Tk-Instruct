@@ -195,7 +195,8 @@ def parse_args():
 
 
 def eval_ranking(args, model, tokenizer, eval_dataset, ex_answer_choices,
-    batch_size=8, cache_dir=None, use_fp16=False, device='cuda'):
+    batch_size=8, cache_dir=None, use_fp16=False, experiment_id=0,
+    device='cuda'):
     """ run evaluation with ranking classification, return accuracy """
 
     # construct warpper for model to perform ranking classification
@@ -307,7 +308,7 @@ def eval_ranking(args, model, tokenizer, eval_dataset, ex_answer_choices,
     eval_dataloader = DataLoader(eval_dataset, collate_fn=data_collator, batch_size=batch_size)
 
     # Metrics
-    metric = load_metric("accuracy")
+    metric = load_metric("accuracy", experiment_id=experiment_id)
 
     # Eval!
     total_batch_size = batch_size

@@ -144,6 +144,10 @@ class SoupDataArguments(DataTrainingArguments):
         default=None,
         metadata={"help": "Name of task to use for filtering test set."}
     )
+    experiment_id: Optional[int] = field(
+        default=0,
+        metadata={"help": "Experiment ID for load_metric if using ranking evaluation."}
+    )
 
 
 def main():
@@ -440,6 +444,7 @@ def main():
                                    batch_size=training_args.per_device_eval_batch_size,
                                    cache_dir=model_args.cache_dir,
                                    use_fp16=training_args.fp16,
+                                   experiment_id=data_args.experiment_id,
                                    device='cuda:0')
         else:
             metrics = trainer.evaluate(max_length=max_length,
@@ -463,6 +468,7 @@ def main():
                                        batch_size=training_args.per_device_eval_batch_size,
                                        cache_dir=model_args.cache_dir,
                                        use_fp16=training_args.fp16,
+                                       experiment_id=data_args.experiment_id,
                                        device='cuda:0')
             else:
                 metrics = trainer.evaluate(max_length=max_length,
@@ -518,6 +524,7 @@ def main():
                                        batch_size=training_args.per_device_eval_batch_size,
                                        cache_dir=model_args.cache_dir,
                                        use_fp16=training_args.fp16,
+                                       experiment_id=data_args.experiment_id,
                                        device='cuda:0')
             else:
                 metrics = trainer.evaluate(max_length=max_length,
@@ -561,7 +568,9 @@ def main():
                                ex_answer_choices,
                                batch_size=training_args.per_device_eval_batch_size,
                                cache_dir=model_args.cache_dir,
-                               use_fp16=training_args.fp16, device='cuda:0')
+                               use_fp16=training_args.fp16,
+                               experiment_id=data_args.experiment_id,
+                               device='cuda:0')
     else:
         metrics = trainer.evaluate(max_length=max_length, num_beams=num_beams,
                                    metric_key_prefix="eval")
@@ -580,7 +589,9 @@ def main():
                                ex_answer_choices,
                                batch_size=training_args.per_device_eval_batch_size,
                                cache_dir=model_args.cache_dir,
-                               use_fp16=training_args.fp16, device='cuda:0')
+                               use_fp16=training_args.fp16,
+                               experiment_id=data_args.experiment_id,
+                               device='cuda:0')
     else:
         predict_results = trainer.predict(
             predict_dataset, metric_key_prefix="predict", max_length=max_length, num_beams=num_beams

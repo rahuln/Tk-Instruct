@@ -206,7 +206,8 @@ if args.num_experts is not None:
 # specify to use ranking evaluation
 if args.use_ranking_eval:
     cmd.extend([f'--use_ranking_eval={args.use_ranking_eval}',
-                '--eval_metric=accuracy'])
+                '--eval_metric=accuracy',
+                f'--experiment_id={args.index}'])
 
 # print command to log file
 print(' '.join(cmd))
