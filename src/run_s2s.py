@@ -21,6 +21,7 @@ Fine-tuning the library models for sequence to sequence.
 import logging
 import os
 import sys
+from itertools import chain
 import json
 from dataclasses import dataclass, field
 from typing import List, Optional
@@ -54,6 +55,7 @@ from ni_collator import DataCollatorForNI
 from ni_trainer import NITrainer, DenserEvalCallback
 from compute_metrics import compute_metrics, compute_grouped_metrics
 
+from run_ranking_eval import eval_ranking
 from util import merge_models
 
 set_progress_bar_enabled(False)
@@ -127,6 +129,10 @@ class ModelArguments:
     use_causal_lm: bool = field(
         default=False,
         metadata={"help": "use causal LM instead of seq2seq model"}
+    )
+    use_ranking_eval: Optional[bool] = field(
+        default=False,
+        metadata={"help": "Use ranking classification for evaluation instead of generating from the model."}
     )
 
 
@@ -266,6 +272,10 @@ class DataTrainingArguments:
     reduction_factor: float = field(
         default=None,
         metadata={"help": "reduction factor for downsampling the number of instances per task"}
+    )
+    experiment_id: Optional[int] = field(
+        default=0,
+        metadata={"help": "Experiment ID for load_metric if using ranking evaluation."}
     )
 
     def __post_init__(self):
@@ -488,6 +498,11 @@ def main():
         if data_args.max_predict_samples is not None:
             predict_dataset = predict_dataset.select(range(data_args.max_predict_samples))
 
+    # get possible answer choices if using ranking classification evaluation
+    if model_args.use_ranking_eval:
+        ex_answer_choices = sorted(set(chain(*[elem['Instance']['output']
+                                               for elem in raw_datasets["train"]])))
+
     # Data collator
     label_pad_token_id = -100 if data_args.ignore_pad_token_for_loss else tokenizer.pad_token_id
     data_collator = DataCollatorForNI(
@@ -594,7 +609,19 @@ def main():
 
     if training_args.do_eval:
         logger.info("*** Evaluate ***")
-        metrics = trainer.evaluate(max_length=max_length, num_beams=num_beams, metric_key_prefix="eval")
+
+        if model_args.use_ranking_eval:
+            metrics = eval_ranking(data_args, model, tokenizer, eval_dataset,
+                                   ex_answer_choices,
+                                   batch_size=training_args.per_device_eval_batch_size,
+                                   cache_dir=model_args.cache_dir,
+                                   use_fp16=training_args.fp16,
+                                   experiment_id=data_args.experiment_id,
+                                   device=training_args.device)
+            metrics = {f'eval_{key}' : value for key, value in metrics.items()}
+        else:
+            metrics = trainer.evaluate(max_length=max_length, num_beams=num_beams, metric_key_prefix="eval")
+
         max_eval_samples = data_args.max_eval_samples if data_args.max_eval_samples is not None else len(eval_dataset)
         metrics["eval_samples"] = min(max_eval_samples, len(eval_dataset))
 
@@ -606,10 +633,21 @@ def main():
     if training_args.do_predict:
         logger.info("*** Predict ***")
 
-        predict_results = trainer.predict(
-            predict_dataset, metric_key_prefix="predict", max_length=max_length, num_beams=num_beams
-        )
-        metrics = predict_results.metrics
+        if model_args.use_ranking_eval:
+            metrics = eval_ranking(data_args, model, tokenizer, eval_dataset,
+                                   ex_answer_choices,
+                                   batch_size=training_args.per_device_eval_batch_size,
+                                   cache_dir=model_args.cache_dir,
+                                   use_fp16=training_args.fp16,
+                                   experiment_id=data_args.experiment_id,
+                                   device=training_args.device)
+            metrics = {f'predict_{key}' : value for key, value in metrics.items()}
+        else:
+            predict_results = trainer.predict(
+                predict_dataset, metric_key_prefix="predict", max_length=max_length, num_beams=num_beams
+            )
+            metrics = predict_results.metrics
+
         max_predict_samples = (
             data_args.max_predict_samples if data_args.max_predict_samples is not None else len(predict_dataset)
         )
@@ -623,6 +661,11 @@ def main():
 
         if trainer.is_world_process_zero():
             if training_args.predict_with_generate:
+                if model_args.use_ranking_eval:
+                    # need to run prediction here, since ranking eval skips this
+                    predict_results = trainer.predict(
+                        predict_dataset, metric_key_prefix="predict", max_length=max_length, num_beams=num_beams
+                    )
                 predictions = tokenizer.batch_decode(
                     predict_results.predictions, skip_special_tokens=True, clean_up_tokenization_spaces=True
                 )
