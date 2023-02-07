@@ -25,7 +25,7 @@ import json
 from dataclasses import dataclass, field
 from copy import deepcopy
 from glob import glob
-from itertools import product
+from itertools import chain, product
 from time import time
 from typing import List, Optional
 
@@ -57,6 +57,7 @@ import torch
 from tqdm import tqdm
 
 from run_s2s import DataTrainingArguments, ModelArguments, NITrainingArguments
+from run_ranking_eval import eval_ranking
 from t5_output_ensemble import T5ForOutputEnsembling
 from util import merge_state_dicts, send_to_device
 
@@ -112,6 +113,10 @@ class SoupModelArguments(ModelArguments):
         default=None,
         metadata={"help": "Number of randomly-selected experts to use instead of full set."}
     )
+    use_ranking_eval: Optional[bool] = field(
+        default=False,
+        metadata={"help": "Use ranking classification for evaluation instead of generating from the model."}
+    )
 
 @dataclass
 class SoupDataArguments(DataTrainingArguments):
@@ -119,6 +124,10 @@ class SoupDataArguments(DataTrainingArguments):
     Extension of data arguments to handle construction of model soups
     """
 
+    eval_metric: Optional[str] = field(
+        default="eval_rougeL",
+        metadata={"help": "evaluation metric to use for adding components to soup"}
+    )
     use_train_as_dev: Optional[bool] = field(
         default=False,
         metadata={"help": "use training set as dev set"}
@@ -321,6 +330,11 @@ def main():
         logger.info("Using training set as validation set")
         eval_dataset = train_dataset
 
+    # get possible answer choices if using ranking classification evaluation
+    if model_args.use_ranking_eval:
+        ex_answer_choices = sorted(set(chain(*[elem['Instance']['output']
+                                               for elem in train_dataset])))
+
     # restrict instances in eval_dataset to those with IDs in specified file
     if data_args.eval_instance_ids_file is not None:
         logger.info(f'Restricting eval_dataset to instances with IDs in: {data_args.eval_instance_ids_file}')
@@ -411,7 +425,7 @@ def main():
     num_beams = data_args.num_beams if data_args.num_beams is not None else training_args.generation_num_beams
 
     # find single best model to start soup with
-    soup_info = {"models" : list(), "eval_rougeL" : list()}
+    soup_info = {"models" : list(), data_args.eval_metric : list()}
     best_metric, best_idx = -np.inf, 0
     if model_args.start_with_base_model:
         if model_args.output_ensemble:
@@ -419,8 +433,20 @@ def main():
             model.add_model(state_dicts[0])
             model.send_to_device('cuda:0')
         logger.info("Using base model as initial soup component")
-        metrics = trainer.evaluate(max_length=max_length, num_beams=num_beams, metric_key_prefix="eval")
-        best_metric, best_idx = metrics["eval_rougeL"], 0
+
+        if model_args.use_ranking_eval:
+            metrics = eval_ranking(data_args, model, tokenizer, eval_dataset,
+                                   ex_answer_choices,
+                                   batch_size=training_args.per_device_eval_batch_size,
+                                   cache_dir=model_args.cache_dir,
+                                   use_fp16=training_args.fp16,
+                                   device='cuda:0')
+        else:
+            metrics = trainer.evaluate(max_length=max_length,
+                                       num_beams=num_beams,
+                                       metric_key_prefix="eval")
+
+        best_metric, best_idx = metrics[data_args.eval_metric], 0
     else:
         logger.info("Finding best initial model")
         for idx, state_dict in enumerate(state_dicts):
@@ -430,15 +456,27 @@ def main():
                 model.send_to_device('cuda:0')
             else:
                 model.load_state_dict(state_dict)
-            metrics = trainer.evaluate(max_length=max_length, num_beams=num_beams, metric_key_prefix="eval")
-            if metrics["eval_rougeL"] > best_metric:
-                best_metric, best_idx = metrics["eval_rougeL"], idx
+
+            if model_args.use_ranking_eval:
+                metrics = eval_ranking(data_args, model, tokenizer, eval_dataset,
+                                       ex_answer_choices,
+                                       batch_size=training_args.per_device_eval_batch_size,
+                                       cache_dir=model_args.cache_dir,
+                                       use_fp16=training_args.fp16,
+                                       device='cuda:0')
+            else:
+                metrics = trainer.evaluate(max_length=max_length,
+                                           num_beams=num_beams,
+                                           metric_key_prefix="eval")
+
+            if metrics[data_args.eval_metric] > best_metric:
+                best_metric, best_idx = metrics[data_args.eval_metric], idx
             if model_args.output_ensemble:
                 component = model.remove_model()
                 component = component.cpu()
-    logger.info(f"best eval_rougeL: {best_metric:.2f}, index: {best_idx}")
+    logger.info(f"best {data_args.eval_metric}: {best_metric:.2f}, index: {best_idx}")
     soup_info["models"].append(files[best_idx])
-    soup_info["eval_rougeL"].append(best_metric)
+    soup_info[data_args.eval_metric].append(best_metric)
     if model_args.output_ensemble:
         state_dicts[best_idx] = state_dicts[best_idx].cuda()
         model.add_model(state_dicts[best_idx])
@@ -473,13 +511,25 @@ def main():
             else:
                 new_state_dict = merge_state_dicts(curr_state_dict, state_dict, num_averaged=num_averaged[pattern], pattern=pattern)
                 model.load_state_dict(new_state_dict)
-            metrics = trainer.evaluate(max_length=max_length, num_beams=num_beams, metric_key_prefix="eval")
-            if metrics["eval_rougeL"] > best_metric:
-                best_metric, best_idx = metrics["eval_rougeL"], idx
+
+            if model_args.use_ranking_eval:
+                metrics = eval_ranking(data_args, model, tokenizer,
+                                       eval_dataset, ex_answer_choices,
+                                       batch_size=training_args.per_device_eval_batch_size,
+                                       cache_dir=model_args.cache_dir,
+                                       use_fp16=training_args.fp16,
+                                       device='cuda:0')
+            else:
+                metrics = trainer.evaluate(max_length=max_length,
+                                           num_beams=num_beams,
+                                           metric_key_prefix="eval")
+
+            if metrics[data_args.eval_metric] > best_metric:
+                best_metric, best_idx = metrics[data_args.eval_metric], idx
             if model_args.output_ensemble:
                 component = model.remove_model()
                 component = component.cpu()
-        logger.info(f"best eval_rougeL: {best_metric:.2f}, index: {best_idx}")
+        logger.info(f"best {data_args.eval_metric}: {best_metric:.2f}, index: {best_idx}")
         if prev_best_metric == best_metric:
             logger.info("metric did not improve, exiting loop")
             break
@@ -497,7 +547,7 @@ def main():
             else:
                 num_averaged[best_pattern] += 1
             soup_info["models"].append((files[best_idx // len(param_groups)], best_pattern))
-        soup_info["eval_rougeL"].append(best_metric)
+        soup_info[data_args.eval_metric].append(best_metric)
 
     # load state_dict for best soup into model
     if not model_args.output_ensemble:
@@ -505,7 +555,17 @@ def main():
 
     # run final evaluation on dev set
     logger.info("*** Evaluate ***")
-    metrics = trainer.evaluate(max_length=max_length, num_beams=num_beams, metric_key_prefix="eval")
+
+    if model_args.use_ranking_eval:
+        metrics = eval_ranking(data_args, model, tokenizer, eval_dataset,
+                               ex_answer_choices,
+                               batch_size=training_args.per_device_eval_batch_size,
+                               cache_dir=model_args.cache_dir,
+                               use_fp16=training_args.fp16, device='cuda:0')
+    else:
+        metrics = trainer.evaluate(max_length=max_length, num_beams=num_beams,
+                                   metric_key_prefix="eval")
+
     max_eval_samples = data_args.max_eval_samples if data_args.max_eval_samples is not None else len(eval_dataset)
     metrics["eval_samples"] = min(max_eval_samples, len(eval_dataset))
     trainer.log_metrics("eval", metrics)
@@ -514,10 +574,19 @@ def main():
 
     # run final evaluation on test set
     logger.info("*** Predict ***")
-    predict_results = trainer.predict(
-        predict_dataset, metric_key_prefix="predict", max_length=max_length, num_beams=num_beams
-    )
-    metrics = predict_results.metrics
+
+    if model_args.use_ranking_eval:
+        metrics = eval_ranking(data_args, model, tokenizer, predict_dataset,
+                               ex_answer_choices,
+                               batch_size=training_args.per_device_eval_batch_size,
+                               cache_dir=model_args.cache_dir,
+                               use_fp16=training_args.fp16, device='cuda:0')
+    else:
+        predict_results = trainer.predict(
+            predict_dataset, metric_key_prefix="predict", max_length=max_length, num_beams=num_beams
+        )
+        metrics = predict_results.metrics
+
     max_predict_samples = (
         data_args.max_predict_samples if data_args.max_predict_samples is not None else len(predict_dataset)
     )
