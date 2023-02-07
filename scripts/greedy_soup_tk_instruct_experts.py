@@ -52,6 +52,9 @@ parser.add_argument('--param_groups', type=str, default=None,
 parser.add_argument('--num_experts', type=int, default=None,
                     help='number of randomly selected experts to use instead '
                          'of the full set')
+parser.add_argument('--use_ranking_eval', action='store_true',
+                    help='using ranking classification for evaluation instead '
+                         'of generated from model')
 parser.add_argument('--seed', type=int, default=42, help='random seed')
 parser.add_argument('--suffix', type=str, default=None,
                     help='suffix to add to name of results directory')
@@ -119,7 +122,8 @@ if args.suffix is not None:
 
 # create output directory
 num_dev_suffix = f'-dev-{num_dev}' if args.num_dev is not None else ''
-output_dir = os.path.join('results', dataset, model_dirname, 'evaluate',
+eval_dirname = 'evaluate-ranking' if args.use_ranking_eval else 'evaluate'
+output_dir = os.path.join('results', dataset, model_dirname, eval_dirname,
                           resdir, args.exp_name + num_dev_suffix, category)
 os.makedirs(output_dir, exist_ok=True)
 
@@ -198,6 +202,11 @@ if args.param_groups is not None:
 # specify number of randomly selected experts
 if args.num_experts is not None:
     cmd.append(f'--num_experts={args.num_experts}')
+
+# specify to use ranking evaluation
+if args.use_ranking_eval:
+    cmd.extend([f'--use_ranking_eval={args.use_ranking_eval}',
+                '--eval_metric=accuracy'])
 
 # print command to log file
 print(' '.join(cmd))
